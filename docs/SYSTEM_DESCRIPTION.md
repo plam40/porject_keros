@@ -99,6 +99,16 @@ The Keros Universal HVAC Controller is designed to be a comprehensive, future-pr
 - **Load Balancing**: Distribute demand across sources for optimal efficiency
 - **Renewable Energy Prioritization**: Maximize use of solar, geothermal, or other renewables
 
+#### 1.3.6 Humidity Control & Dehumidification
+- **Multi-Zone Humidity Monitoring**: Individual zone humidity tracking with high-precision sensors
+- **Active Dehumidification**: Integration with dedicated dehumidifiers, heat pump cooling, or ERV systems
+- **Humidification Control**: Coordination with steam or evaporative humidifiers for optimal comfort
+- **Condensation Prevention**: Dew point monitoring to prevent condensation on cold surfaces
+- **Seasonal Adjustment**: Automatic humidity setpoint adaptation based on outdoor conditions
+- **Health & Comfort Optimization**: Maintain optimal 40-60% RH range for health and comfort
+- **Mold Prevention**: Continuous monitoring and control to prevent high-humidity conditions
+- **Integration with Ventilation**: Coordinated control between humidity and ventilation systems
+
 ### 1.4 System Capabilities
 
 #### 1.4.1 Control Complexity
@@ -253,16 +263,16 @@ The Keros system follows a **Skeleton + Module** architecture as defined in the 
 │          │        (Event Bus / Message Queue)     │              │
 │          └───────────────┬───────────────────────┘              │
 │                          │                                       │
-│  ┌──────────┬───────────┬┴──────────┬───────────┬─────────┐    │
-│  │          │           │            │           │         │    │
-│  ▼          ▼           ▼            ▼           ▼         ▼    │
-│ ┌──┐      ┌──┐        ┌──┐        ┌──┐       ┌──┐      ┌──┐   │
-│ │HP│      │VE│        │PM│        │HS│       │MS│      │TC│   │
-│ │ M│      │NT│        │ P│        │ M│       │ C│      │ M│   │
-│ └──┘      └──┘        └──┘        └──┘       └──┘      └──┘   │
-│Heat      Vent     Pump        Heat       Multi-    Telemetry   │
-│Pump      Module   Module      Storage    Source    & Cloud     │
-│Module                         Module     Ctrl      Module       │
+│  ┌────────┬──────────┬──┴────┬──────────┬──────────┬──────────┬────┐
+│  │        │          │       │          │          │          │    │
+│  ▼        ▼          ▼       ▼          ▼          ▼          ▼    │
+│ ┌──┐    ┌──┐      ┌──┐    ┌──┐      ┌──┐      ┌──┐      ┌──┐    │
+│ │HP│    │VE│      │PM│    │HS│      │MS│      │HC│      │TC│    │
+│ │ M│    │NT│      │ P│    │ M│      │ C│      │ M│      │ M│    │
+│ └──┘    └──┘      └──┘    └──┘      └──┘      └──┘      └──┘    │
+│Heat    Vent    Pump    Heat     Multi-   Humidity Telemetry    │
+│Pump    Module  Module  Storage  Source   Control  & Cloud      │
+│Module                  Module   Ctrl     Module   Module        │
 └─────────────────────────────────┬───────────────────────────────┘
                                   │
 ┌─────────────────────────────────┴───────────────────────────────┐
@@ -607,6 +617,31 @@ module_name/
 - Load sharing percentages
 - Operating mode selection
 
+##### Humidity Control Module (HCM)
+**Purpose:** Manages indoor humidity levels for comfort, health, and building protection
+
+**Responsibilities:**
+- Multi-zone humidity monitoring and control
+- Dew point calculation and condensation prevention
+- Dehumidifier/humidifier coordination
+- Integration with cooling and ventilation systems
+- Seasonal humidity setpoint adjustment
+- Mold risk assessment and prevention
+
+**Inputs:**
+- Indoor humidity sensors (per zone)
+- Outdoor humidity and temperature
+- Surface temperature sensors (cold surfaces)
+- Occupancy data
+- Weather forecast
+
+**Outputs:**
+- Dehumidifier control (on/off or variable speed)
+- Humidifier control (steam, evaporative)
+- Cooling mode activation for dehumidification
+- Ventilation adjustment commands
+- ERV/HRV mode selection
+
 ##### Telemetry & Cloud Module (TCM)
 **Purpose:** External communication, logging, and cloud integration
 
@@ -755,7 +790,7 @@ void MultiSourceController::on_event(Event& event) {
 ```
 ┌────────────────────────────────────────────────┐
 │         Application Layer                      │
-│  - Modules (HPM, VENT, PMP, HSM, MSC, TCM)    │
+│  - Modules (HPM, VENT, PMP, HSM, MSC, HCM, TCM)│
 └────────────────┬───────────────────────────────┘
                  │
 ┌────────────────┴───────────────────────────────┐
@@ -811,12 +846,13 @@ Estimated memory usage:
 | Pump Module | 6 | 24 |
 | Heat Storage Module | 10 | 40 |
 | Multi-Source Controller | 12 | 48 |
+| Humidity Control Module | 8 | 28 |
 | Telemetry Module | 15 | 60 |
 | Web UI (SPIFFS) | - | 200 |
 | Configuration/Logs | 20 | 100 |
-| **Total Estimated** | **157 KB** | **1128 KB** |
+| **Total Estimated** | **165 KB** | **1156 KB** |
 | **ESP32 Available** | 520 KB | 4096 KB |
-| **Margin** | **363 KB (70%)** | **2968 KB (72%)** |
+| **Margin** | **355 KB (68%)** | **2940 KB (72%)** |
 
 ### 2.8 Extensibility Mechanisms
 
@@ -966,6 +1002,36 @@ For development and testing:
 - **Interface**: 4-20mA or 0-10V → ADC
 - **Typical Use**: Continuous flow monitoring
 
+##### Humidity Sensors (for Humidity Control Module)
+
+**Primary: Capacitive Humidity Sensors (SHT31, SHT40, BME280, BME680)**
+- **Interface**: I2C
+- **Range**: 0-100% RH
+- **Accuracy**: ±2-3% RH typical (±1.5% RH for SHT40)
+- **Response Time**: <8 seconds (τ63%)
+- **Temperature Compensation**: Built-in
+- **Typical Use**: Zone humidity monitoring, dew point calculation
+- **Notes**: BME680 includes VOC sensor; BME280 includes pressure sensor
+
+**Alternative: Resistive Humidity Sensors**
+- **Interface**: Analog (resistance change)
+- **Range**: 20-90% RH
+- **Accuracy**: ±5% RH
+- **Typical Use**: Low-cost installations, non-critical zones
+
+**Surface Condensation Sensors**
+- **Type**: Temperature + Humidity sensor pair
+- **Purpose**: Monitor cold surfaces (windows, walls) for condensation risk
+- **Calculation**: Dew point vs. surface temperature differential
+- **Typical Use**: Condensation prevention, mold risk assessment
+
+**Dew Point Calculation:**
+```
+Dew Point (°C) ≈ T - ((100 - RH) / 5)
+Where: T = temperature (°C), RH = relative humidity (%)
+More accurate: Magnus-Tetens formula or lookup tables
+```
+
 ##### Air Quality Sensors (for Ventilation Module)
 
 **CO₂ Sensor: SCD40 or MH-Z19**
@@ -1055,6 +1121,40 @@ For development and testing:
 **Three-Phase Equipment**
 - **Method**: Relay outputs to motor starters or VFDs
 - **Safety**: Phase monitoring, overload protection via external devices
+
+##### Humidity Control Outputs
+
+**Dehumidifier Control**
+- **Type**: Relay output (on/off) or variable speed (PWM/0-10V)
+- **Options**:
+  - Standalone dehumidifier: Relay for power control
+  - Variable capacity: 0-10V speed control
+  - Heat pump cooling mode: Relay + temperature control
+- **Typical Capacity**: 30-70 liters/day (residential)
+- **Integration**: Coordinate with cooling system to avoid conflicts
+
+**Humidifier Control**
+- **Steam Humidifier**:
+  - Control: Relay (on/off) or modulating (0-10V)
+  - Power: 120-240V AC, 500-3000W typical
+  - Response Time: Fast (minutes)
+  - Safety: Auto-shutoff on low water, high-limit humidistat
+
+- **Evaporative Humidifier**:
+  - Control: Relay for water valve, fan speed (PWM/0-10V)
+  - Power: 24V water valve, 120V fan
+  - Response Time: Moderate (10-30 minutes)
+  - Maintenance: Regular cleaning, filter replacement
+
+**ERV/HRV Humidity Management**
+- **Winter Mode**: Heat recovery, minimal outdoor air for humidity control
+- **Summer Mode**: Bypass or ERV mode to reduce humidity
+- **Control**: Damper position (0-10V) or mode selection (relay)
+
+**Condensate Drain Management**
+- **Drain Pump**: Relay control for condensate removal
+- **Safety**: Float switch for overflow protection
+- **Typical Use**: Dehumidifier, cooling coil condensate
 
 ### 3.3 Reference Hardware Design
 
