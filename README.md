@@ -1,4 +1,5 @@
 # HVAC Controller - ESP32 Based Heat Pump Control System
+*** This is software is alpha ( not tested and not validatted ) use at your own risk. 
 
 A comprehensive, modular HVAC control system built for ESP32 microcontrollers. This project implements a professional-grade heat pump controller following the Skeleton + Module architecture pattern.
 
