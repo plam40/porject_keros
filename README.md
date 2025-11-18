@@ -67,6 +67,16 @@ This HVAC controller provides intelligent management of:
   - Stored energy calculation (kWh)
   - State detection (idle, charging, discharging, full, empty)
 
+- **HumidityControlModule**: Humidity control with mold prevention
+  - Multi-sensor support (BME280, SHT31, DHT22)
+  - Dehumidifier and humidifier control
+  - Multi-zone humidity management
+  - Dewpoint calculation
+  - Mold risk detection and alerts
+  - Condensation risk monitoring
+  - Hysteresis-based control to prevent cycling
+  - Minimum run/off time protection
+
 ### 🚧 Pending Components
 
 The following modules are specified in the system documentation but not yet implemented:
@@ -350,9 +360,10 @@ Current memory allocation (estimated):
 | HeatPumpModule | 15 | 35 |
 | VentilationModule | 5 | 15 |
 | HeatStorageModule | 10 | 20 |
-| **Total Used** | **175 KB** | **825 KB** |
+| HumidityControlModule | 12 | 30 |
+| **Total Used** | **187 KB** | **855 KB** |
 | **ESP32 Available** | 520 KB | 4096 KB |
-| **Safety Margin** | **66%** | **80%** |
+| **Safety Margin** | **64%** | **79%** |
 
 ## 📚 Documentation
 

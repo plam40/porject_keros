@@ -19,6 +19,7 @@
 #include "modules/HeatPumpModule.h"
 #include "modules/VentilationModule.h"
 #include "modules/HeatStorageModule.h"
+#include "modules/HumidityControlModule.h"
 
 // Global skeleton instance reference
 Skeleton& system = Skeleton::get_instance();
@@ -29,6 +30,7 @@ static PumpModule pump_module;
 static HeatPumpModule heat_pump_module;
 static VentilationModule ventilation_module;
 static HeatStorageModule heat_storage_module;
+static HumidityControlModule humidity_module;
 
 /**
  * Arduino setup function
@@ -67,6 +69,9 @@ void setup() {
     // Heat storage monitoring
     system.register_module(&heat_storage_module, 50);
 
+    // Humidity control
+    system.register_module(&humidity_module, 60);
+
     // Ventilation control
     system.register_module(&ventilation_module, 70);
 
@@ -99,6 +104,35 @@ void setup() {
     main_tank.temp_sensors = {"tank_top", "tank_mid", "tank_bottom"};
     main_tank.enabled = true;
     heat_storage_module.add_tank(main_tank);
+
+    // Configure humidity module
+    // Add humidity sensor (SHT31 I2C sensor)
+    HumiditySensorConfig hum_sensor;
+    hum_sensor.name = "living_room_sensor";
+    hum_sensor.type = HumiditySensorType::SHT31;
+    hum_sensor.i2c_address = 0x44;  // Default SHT31 address
+    hum_sensor.data_pin = 0;
+    hum_sensor.humidity_offset = 0.0;
+    hum_sensor.temperature_offset_c = 0.0;
+    hum_sensor.enabled = true;
+    humidity_module.add_sensor(hum_sensor);
+
+    // Add humidity control zone
+    HumidityZoneConfig hum_zone;
+    hum_zone.zone_name = "living_room";
+    hum_zone.sensor_name = "living_room_sensor";
+    hum_zone.dehumidifier_pin = 33;  // GPIO 33 for dehumidifier relay
+    hum_zone.humidifier_pin = 0;     // No humidifier
+    hum_zone.target_humidity_percent = 50.0;
+    hum_zone.hysteresis_percent = 5.0;
+    hum_zone.min_run_time_ms = 300000;   // 5 minutes
+    hum_zone.min_off_time_ms = 600000;   // 10 minutes
+    hum_zone.max_humidity_percent = 70.0;
+    hum_zone.min_humidity_percent = 30.0;
+    hum_zone.mold_risk_humidity = 65.0;
+    hum_zone.mold_risk_duration_ms = 3600000;  // 1 hour
+    hum_zone.enabled = true;
+    humidity_module.add_zone(hum_zone);
 
     // Initialize the system
     Serial.println("Initializing system...\n");
@@ -139,6 +173,7 @@ void loop() {
     heat_pump_module.update();
     ventilation_module.update();
     heat_storage_module.update();
+    humidity_module.update();
 
     // Optional: Print periodic status updates
     static uint32_t last_status_print = 0;
