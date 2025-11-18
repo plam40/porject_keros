@@ -11,15 +11,24 @@
 
 #include <Arduino.h>
 #include "Skeleton.h"
+#include "HAL.h"
 
-// Module includes will go here as they are implemented
-// #include "modules/TemperatureSensorModule.h"
-// #include "modules/PumpModule.h"
-// #include "modules/HeatPumpModule.h"
-// etc.
+// Module includes
+#include "modules/TemperatureSensorModule.h"
+#include "modules/PumpModule.h"
+#include "modules/HeatPumpModule.h"
+#include "modules/VentilationModule.h"
+#include "modules/HeatStorageModule.h"
 
 // Global skeleton instance reference
 Skeleton& system = Skeleton::get_instance();
+
+// Global module instances (must be static to persist)
+static TemperatureSensorModule temp_module;
+static PumpModule pump_module;
+static HeatPumpModule heat_pump_module;
+static VentilationModule ventilation_module;
+static HeatStorageModule heat_storage_module;
 
 /**
  * Arduino setup function
@@ -45,16 +54,51 @@ void setup() {
     // Enable verbose logging
     system.set_verbose_logging(true);
 
-    // Register modules here
-    // Example:
-    // static TemperatureSensorModule temp_module;
-    // system.register_module(&temp_module, 10);  // High priority
-    //
-    // static PumpModule pump_module;
-    // system.register_module(&pump_module, 50);  // Medium priority
-    //
-    // static HeatPumpModule hp_module;
-    // system.register_module(&hp_module, 100);  // Lower priority
+    // Initialize HAL first
+    HAL::get_instance().initialize();
+
+    // Register modules in priority order (lower number = higher priority)
+    // Temperature sensors first - other modules depend on temperature data
+    system.register_module(&temp_module, 10);
+
+    // Pumps next - needed for circulation
+    system.register_module(&pump_module, 30);
+
+    // Heat storage monitoring
+    system.register_module(&heat_storage_module, 50);
+
+    // Ventilation control
+    system.register_module(&ventilation_module, 70);
+
+    // Heat pump last - depends on other modules
+    system.register_module(&heat_pump_module, 100);
+
+    // Configure pump module
+    PumpConfig primary_pump;
+    primary_pump.name = "primary";
+    primary_pump.pwm_pin = 26;
+    primary_pump.pwm_channel = 0;
+    primary_pump.current_sense_pin = 35;
+    primary_pump.min_speed_percent = 30;
+    primary_pump.max_speed_percent = 100;
+    primary_pump.min_on_time_ms = 60000;   // 1 minute
+    primary_pump.min_off_time_ms = 30000;  // 30 seconds
+    primary_pump.soft_start_time_ms = 3000; // 3 seconds
+    primary_pump.max_current_amps = 5.0;
+    primary_pump.min_current_amps = 0.5;
+    primary_pump.current_calibration = 20.0;  // ADC voltage to Amps
+    primary_pump.enabled = true;
+    pump_module.add_pump(primary_pump);
+
+    // Configure heat storage tank
+    TankConfig main_tank;
+    main_tank.name = "main_tank";
+    main_tank.volume_liters = 500.0;
+    main_tank.min_temp_c = 20.0;
+    main_tank.max_temp_c = 80.0;
+    main_tank.temp_sensors = {"tank_top", "tank_mid", "tank_bottom"};
+    main_tank.enabled = true;
+    heat_storage_module.add_tank(main_tank);
 
     // Initialize the system
     Serial.println("Initializing system...\n");
@@ -86,9 +130,15 @@ void setup() {
  * Called continuously
  */
 void loop() {
-    // Update the system
-    // This calls update on all registered modules and monitors health
+    // Update the system skeleton (safety, config, health monitoring)
     system.update();
+
+    // Update all modules
+    temp_module.update();
+    pump_module.update();
+    heat_pump_module.update();
+    ventilation_module.update();
+    heat_storage_module.update();
 
     // Optional: Print periodic status updates
     static uint32_t last_status_print = 0;

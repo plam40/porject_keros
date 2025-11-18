@@ -33,21 +33,49 @@ This HVAC controller provides intelligent management of:
 
 #### Modules
 - **TemperatureSensorModule**: DS18B20 sensor management
-  - Auto-discovery of sensors
-  - Calibration support
+  - Auto-discovery of sensors on OneWire bus
+  - Calibration support with offset adjustment
   - Event publishing on temperature changes
-  - Health monitoring
+  - Health monitoring and fault detection
+
+- **PumpModule**: Variable speed circulation pump control
+  - Multiple pump support with independent control
+  - PWM-based speed control (0-100%)
+  - Current monitoring for fault detection
+  - Soft start to reduce mechanical stress
+  - Minimum on/off time protection
+  - Dry running and overcurrent detection
+
+- **HeatPumpModule**: Heat pump control with advanced features
+  - Compressor control with protection timers
+  - COP (Coefficient of Performance) monitoring
+  - Automatic defrost cycle management
+  - Multiple operating modes (heating, cooling, defrost)
+  - Temperature-based safety limits
+  - Outdoor temperature compensation
+
+- **VentilationModule**: HRV/ERV ventilation control
+  - Supply and exhaust fan control
+  - Variable speed operation
+  - Multiple operating modes (off, low, medium, high, boost, auto)
+  - Runtime tracking
+
+- **HeatStorageModule**: Heat storage tank management
+  - Multi-tank support
+  - Temperature stratification monitoring
+  - Charge percentage calculation
+  - Stored energy calculation (kWh)
+  - State detection (idle, charging, discharging, full, empty)
 
 ### 🚧 Pending Components
 
 The following modules are specified in the system documentation but not yet implemented:
-- Heat Pump Module (compressor control, COP optimization)
-- Pump Control Module (variable speed control)
-- Ventilation Module (HRV/ERV control)
-- Heat Storage Module (stratification management)
-- Web Server Module (REST API, WebSocket)
-- MQTT Integration Module
-- Modbus Communication Module
+- Web Server Module (REST API, WebSocket, web dashboard)
+- MQTT Integration Module (smart home connectivity)
+- Modbus Communication Module (industrial equipment integration)
+- Advanced COP optimization algorithms
+- Predictive maintenance features
+- Energy usage analytics
 
 ## 🏗️ Architecture
 
@@ -318,9 +346,13 @@ Current memory allocation (estimated):
 | ConfigManager | 12 | 25 |
 | HAL | 8 | 35 |
 | TemperatureSensorModule | 8 | 20 |
-| **Total Used** | **133 KB** | **730 KB** |
+| PumpModule | 12 | 25 |
+| HeatPumpModule | 15 | 35 |
+| VentilationModule | 5 | 15 |
+| HeatStorageModule | 10 | 20 |
+| **Total Used** | **175 KB** | **825 KB** |
 | **ESP32 Available** | 520 KB | 4096 KB |
-| **Safety Margin** | **74%** | **82%** |
+| **Safety Margin** | **66%** | **80%** |
 
 ## 📚 Documentation
 
@@ -377,11 +409,11 @@ This project follows strict coding standards defined in `CODING_STANDARDS.md`:
 - ✅ Hardware Abstraction Layer
 - ✅ Temperature sensor module
 
-### Phase 2: Control Modules (IN PROGRESS)
-- ⏳ Pump control module
-- ⏳ Heat pump module
-- ⏳ Ventilation module
-- ⏳ Heat storage module
+### Phase 2: Control Modules ✅ (COMPLETED)
+- ✅ Pump control module
+- ✅ Heat pump module
+- ✅ Ventilation module
+- ✅ Heat storage module
 
 ### Phase 3: User Interface
 - ⏳ Web server with REST API
