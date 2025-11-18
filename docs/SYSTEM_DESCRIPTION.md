@@ -17,7 +17,7 @@ This document provides a comprehensive system description for the Keros Universa
 1. **Introduction & System Overview** ✓
 2. **System Architecture** ✓
 3. **Hardware Specifications** ✓
-4. Control Logic & Algorithms
+4. **Control Logic & Algorithms** ✓
 5. Heat Storage Management
 6. User Interface Requirements
 7. Modular Design & Extensibility
@@ -1541,6 +1541,652 @@ Optocoupler Transistor:
 
 ---
 
+## 4. Control Logic & Algorithms
+
+### 4.1 Overview
+
+The Keros system employs sophisticated control algorithms to optimize comfort, efficiency, and equipment longevity. Control strategies range from simple PID loops to advanced model predictive control (MPC) with weather forecasting integration.
+
+**Control Objectives (Priority Order):**
+1. **Safety**: Protect equipment and occupants (highest priority)
+2. **Comfort**: Maintain setpoints within acceptable deadbands
+3. **Efficiency**: Minimize energy consumption while meeting comfort requirements
+4. **Equipment Protection**: Reduce wear through optimized operation
+5. **Cost Optimization**: Leverage time-of-use pricing and demand response
+
+### 4.2 Temperature Control Algorithms
+
+#### 4.2.1 PID Control Fundamentals
+
+The system uses PID (Proportional-Integral-Derivative) control as the foundation for temperature regulation.
+
+**PID Equation:**
+```
+Output(t) = Kp × e(t) + Ki × ∫e(t)dt + Kd × de(t)/dt
+
+Where:
+  e(t) = Setpoint - Measured_Value (error)
+  Kp = Proportional gain
+  Ki = Integral gain
+  Kd = Derivative gain
+```
+
+**Tuning Parameters (Typical Values):**
+
+| Application | Kp | Ki | Kd | Notes |
+|-------------|----|----|----|----|
+| Zone Temperature | 2.0-5.0 | 0.01-0.05 | 0.1-0.5 | Slow response acceptable |
+| Supply Temperature | 5.0-10.0 | 0.05-0.1 | 0.5-1.0 | Faster response needed |
+| Storage Tank | 1.0-3.0 | 0.005-0.02 | 0.05-0.2 | Avoid oscillation |
+| Humidity Control | 0.5-2.0 | 0.001-0.01 | 0.0-0.1 | Very slow process |
+
+**Anti-Windup:**
+```cpp
+// Integral term limiting to prevent windup
+float integral_term = integral_accumulator * Ki;
+if (integral_term > MAX_INTEGRAL_OUTPUT) {
+    integral_term = MAX_INTEGRAL_OUTPUT;
+    integral_accumulator = MAX_INTEGRAL_OUTPUT / Ki;
+}
+```
+
+**Derivative Filtering:**
+```cpp
+// Low-pass filter on derivative to reduce noise sensitivity
+derivative_filtered = ALPHA * derivative_raw + (1 - ALPHA) * derivative_previous;
+// Typical ALPHA = 0.1 to 0.3
+```
+
+#### 4.2.2 Adaptive PID
+
+The system automatically adjusts PID parameters based on operating conditions:
+
+**Load-Based Adaptation:**
+```cpp
+void adapt_pid_gains(float current_load_percent) {
+    // Increase aggressiveness at higher loads
+    Kp_effective = Kp_base * (1.0 + 0.5 * current_load_percent / 100.0);
+
+    // Reduce integral action at low loads to prevent overshoot
+    Ki_effective = Ki_base * (0.5 + 0.5 * current_load_percent / 100.0);
+}
+```
+
+**Seasonal Adaptation:**
+- Winter (heating): Increase Kp for faster response to cold outdoor conditions
+- Summer (cooling): Decrease Kd to reduce oscillation from solar gains
+- Shoulder seasons: Balanced tuning for mixed heating/cooling
+
+#### 4.2.3 Cascaded Control
+
+Multi-stage control for improved performance:
+
+```
+┌────────────────────────────────────────────────────┐
+│  Zone Temperature Controller (Outer Loop)          │
+│  Setpoint: 21°C, Measured: 20.5°C                  │
+│  Output: Supply Temperature Setpoint = 45°C        │
+└────────────────┬───────────────────────────────────┘
+                 │
+                 ▼
+┌────────────────────────────────────────────────────┐
+│  Supply Temperature Controller (Inner Loop)        │
+│  Setpoint: 45°C, Measured: 42°C                    │
+│  Output: Heat Source Demand = 75%                  │
+└────────────────┬───────────────────────────────────┘
+                 │
+                 ▼
+          [Heat Source Actuation]
+```
+
+**Benefits:**
+- Faster disturbance rejection
+- Improved stability
+- Separation of concerns (comfort vs. equipment control)
+
+### 4.3 Heat Pump Control Algorithms
+
+#### 4.3.1 Compressor Control Strategies
+
+**On/Off Control (Fixed Capacity Heat Pumps):**
+
+```cpp
+void control_on_off_compressor() {
+    // Minimum runtime protection
+    if (compressor_on && (millis() - compressor_start_time < MIN_RUNTIME_MS)) {
+        return;  // Cannot turn off yet
+    }
+
+    // Minimum off-time protection
+    if (!compressor_on && (millis() - compressor_stop_time < MIN_OFF_TIME_MS)) {
+        return;  // Cannot turn on yet
+    }
+
+    // Hysteresis control
+    float temp_error = supply_setpoint - supply_temperature;
+
+    if (temp_error > DEADBAND_ON) {
+        compressor_enable = true;
+    } else if (temp_error < -DEADBAND_OFF) {
+        compressor_enable = false;
+    }
+    // Else: maintain current state (hysteresis)
+}
+
+// Typical values:
+// MIN_RUNTIME_MS = 300000 (5 minutes)
+// MIN_OFF_TIME_MS = 180000 (3 minutes)
+// DEADBAND_ON = 2.0°C
+// DEADBAND_OFF = -0.5°C
+```
+
+**Variable Capacity Control (Inverter Heat Pumps):**
+
+```cpp
+void control_variable_compressor() {
+    // PID control for capacity modulation
+    float error = supply_setpoint - supply_temperature;
+
+    float capacity_demand = pid_controller.calculate(error);
+
+    // Apply rate limiting (prevent rapid changes)
+    float max_change_per_second = 10.0;  // % per second
+    float max_change = max_change_per_second * loop_time_seconds;
+
+    capacity_demand = constrain_rate_of_change(
+        capacity_demand,
+        previous_capacity,
+        max_change
+    );
+
+    // Apply operational limits
+    capacity_output = constrain(capacity_demand, MIN_CAPACITY_PERCENT, 100.0);
+
+    // Convert to 0-10V or PWM signal
+    set_compressor_speed(capacity_output);
+}
+```
+
+#### 4.3.2 COP Optimization
+
+**Real-Time COP Calculation:**
+
+```cpp
+float calculate_cop() {
+    // Measure heat output
+    float flow_rate_lps = read_flow_meter();  // liters per second
+    float delta_t = supply_temp - return_temp;  // °C
+    float heat_output_kw = flow_rate_lps * 4.186 * delta_t;  // kW
+
+    // Measure electrical input
+    float power_input_kw = read_power_meter();  // kW
+
+    // Calculate COP
+    float cop = heat_output_kw / power_input_kw;
+
+    // Apply sanity checks
+    if (cop < 1.0 || cop > 8.0) {
+        log_error("COP out of range: " + String(cop));
+        return -1;  // Invalid
+    }
+
+    return cop;
+}
+```
+
+**COP-Based Operating Point Optimization:**
+
+```cpp
+void optimize_operating_point() {
+    float current_cop = calculate_cop();
+
+    // Adjust supply temperature to maximize COP while meeting load
+    if (current_cop > 0 && load_met) {
+        // Lower supply temp improves COP (if load still met)
+        if (current_cop < target_cop_threshold) {
+            supply_setpoint -= 0.5;  // Decrease by 0.5°C
+            supply_setpoint = max(supply_setpoint, MIN_SUPPLY_TEMP);
+        }
+    } else if (!load_met) {
+        // Increase supply temp to meet load
+        supply_setpoint += 0.5;
+        supply_setpoint = min(supply_setpoint, MAX_SUPPLY_TEMP);
+    }
+}
+```
+
+**Weather-Compensated Supply Temperature:**
+
+```cpp
+float calculate_supply_setpoint(float outdoor_temp, float indoor_setpoint) {
+    // Heating curve: lower outdoor temp → higher supply temp
+    // Typical curve: supply = 45°C at 0°C outdoor, 25°C at 20°C outdoor
+
+    float slope = (MAX_SUPPLY_TEMP - MIN_SUPPLY_TEMP) /
+                  (MIN_OUTDOOR_TEMP - MAX_OUTDOOR_TEMP);
+
+    float supply_setpoint = MAX_SUPPLY_TEMP + slope * (outdoor_temp - MIN_OUTDOOR_TEMP);
+
+    // Apply limits
+    supply_setpoint = constrain(supply_setpoint, MIN_SUPPLY_TEMP, MAX_SUPPLY_TEMP);
+
+    return supply_setpoint;
+}
+```
+
+#### 4.3.3 Defrost Control
+
+**Frost Detection:**
+
+```cpp
+bool is_defrost_needed() {
+    // Method 1: Time-temperature integration
+    if (outdoor_temp < FROST_THRESHOLD &&
+        runtime_minutes > DEFROST_INTERVAL_MIN) {
+        return true;
+    }
+
+    // Method 2: Temperature differential
+    float delta_t = evaporator_temp - outdoor_temp;
+    if (delta_t > DEFROST_DELTA_T_THRESHOLD) {
+        return true;  // Frost buildup indicated
+    }
+
+    // Method 3: Pressure differential (if sensors available)
+    if (has_pressure_sensors) {
+        if (evap_pressure_drop > FROST_PRESSURE_THRESHOLD) {
+            return true;
+        }
+    }
+
+    return false;
+}
+```
+
+**Defrost Execution:**
+
+```cpp
+void execute_defrost_cycle() {
+    // 1. Switch to defrost mode
+    set_reversing_valve(COOLING_MODE);  // Reverse refrigerant flow
+    compressor_enable = true;
+    outdoor_fan_enable = false;  // Stop outdoor fan
+
+    // 2. Monitor defrost progress
+    while (defrost_active) {
+        if (evaporator_temp > DEFROST_COMPLETE_TEMP ||
+            defrost_time > MAX_DEFROST_TIME) {
+            // Defrost complete
+            break;
+        }
+        delay(1000);
+    }
+
+    // 3. Return to normal operation
+    set_reversing_valve(HEATING_MODE);
+    outdoor_fan_enable = true;
+
+    // 4. Log defrost metrics
+    log_defrost_cycle(defrost_duration, energy_used);
+}
+```
+
+### 4.4 Ventilation Control Algorithms
+
+#### 4.4.1 Demand-Controlled Ventilation (DCV)
+
+**CO₂-Based Control:**
+
+```cpp
+void control_ventilation_co2() {
+    float co2_ppm = read_co2_sensor();
+
+    // Setpoint: 800-1000 ppm (ASHRAE 62.1 recommendation)
+    float co2_setpoint = 1000;
+    float co2_error = co2_ppm - co2_setpoint;
+
+    // Calculate airflow demand (% of max)
+    float airflow_percent;
+
+    if (co2_ppm < 600) {
+        airflow_percent = MIN_AIRFLOW_PERCENT;  // Minimum ventilation
+    } else if (co2_ppm > 1500) {
+        airflow_percent = 100.0;  // Maximum ventilation
+    } else {
+        // Proportional band: 600-1500 ppm
+        airflow_percent = map_float(co2_ppm, 600, 1500, MIN_AIRFLOW_PERCENT, 100.0);
+    }
+
+    set_fan_speed(airflow_percent);
+}
+```
+
+**Occupancy-Based Control:**
+
+```cpp
+void control_ventilation_occupancy() {
+    int occupant_count = get_occupancy_count();
+
+    // ASHRAE 62.1: 15 CFM per person + base ventilation
+    float base_airflow_cfm = FLOOR_AREA_SQF * 0.06;  // Area component
+    float occupancy_airflow_cfm = occupant_count * 15;  // People component
+
+    float total_required_cfm = base_airflow_cfm + occupancy_airflow_cfm;
+
+    // Convert to fan speed percentage
+    float airflow_percent = (total_required_cfm / MAX_AIRFLOW_CFM) * 100.0;
+    airflow_percent = constrain(airflow_percent, MIN_AIRFLOW_PERCENT, 100.0);
+
+    set_fan_speed(airflow_percent);
+}
+```
+
+#### 4.4.2 Heat Recovery Optimization
+
+**ERV/HRV Mode Selection:**
+
+```cpp
+void select_hrv_erv_mode() {
+    float indoor_temp = read_indoor_temp();
+    float outdoor_temp = read_outdoor_temp();
+    float indoor_humidity = read_indoor_humidity();
+    float outdoor_humidity = read_outdoor_humidity();
+
+    // Summer: High outdoor humidity → ERV to remove moisture
+    if (outdoor_temp > 25 && outdoor_humidity > 70) {
+        set_mode(ERV_MODE);  // Energy Recovery Ventilation
+    }
+    // Winter: Dry outdoor air → HRV to retain indoor moisture
+    else if (outdoor_temp < 5 && outdoor_humidity < 40) {
+        set_mode(HRV_MODE);  // Heat Recovery Ventilation only
+    }
+    // Shoulder seasons: Use bypass if beneficial
+    else if (outdoor_temp > indoor_temp && cooling_desired) {
+        set_bypass(OPEN);  // Free cooling
+    } else {
+        set_mode(HRV_MODE);
+        set_bypass(CLOSED);
+    }
+}
+```
+
+### 4.5 Humidity Control Algorithms
+
+#### 4.5.1 Dehumidification Control
+
+**Priority-Based Dehumidification:**
+
+```cpp
+void control_dehumidification() {
+    float indoor_rh = read_humidity_sensor();
+    float rh_setpoint = get_humidity_setpoint();  // Typically 50-55%
+    float rh_error = indoor_rh - rh_setpoint;
+
+    // Priority 1: Use existing cooling system if active
+    if (cooling_mode_active && rh_error > 5) {
+        // Reduce supply temp to enhance dehumidification
+        reduce_supply_temp_for_dehumidification();
+    }
+
+    // Priority 2: Activate dedicated dehumidifier
+    else if (rh_error > 10) {
+        dehumidifier_enable = true;
+
+        // Variable capacity control if supported
+        if (has_variable_dehumidifier) {
+            float capacity = constrain(rh_error * 5.0, 30.0, 100.0);
+            set_dehumidifier_capacity(capacity);
+        }
+    }
+
+    // Priority 3: Increase ventilation if outdoor humidity is lower
+    else if (rh_error > 5 && outdoor_humidity < indoor_rh - 10) {
+        increase_ventilation_rate();
+    }
+
+    // Turn off if setpoint reached with hysteresis
+    if (rh_error < -5) {
+        dehumidifier_enable = false;
+    }
+}
+```
+
+**Condensation Prevention:**
+
+```cpp
+void prevent_condensation() {
+    float indoor_temp = read_indoor_temp();
+    float indoor_rh = read_humidity_sensor();
+
+    // Calculate dew point
+    float dew_point = calculate_dew_point(indoor_temp, indoor_rh);
+
+    // Monitor cold surfaces
+    for (auto sensor : surface_temp_sensors) {
+        float surface_temp = sensor.read();
+
+        // Alert if surface is approaching dew point
+        if (surface_temp < dew_point + 2.0) {
+            log_warning("Condensation risk on surface: " + sensor.name);
+
+            // Corrective actions
+            activate_dehumidifier();
+            // Or increase local heating
+            // Or increase air circulation
+        }
+    }
+}
+
+float calculate_dew_point(float temp_c, float rh_percent) {
+    // Magnus-Tetens approximation
+    float a = 17.27;
+    float b = 237.7;
+
+    float alpha = ((a * temp_c) / (b + temp_c)) + log(rh_percent / 100.0);
+    float dew_point = (b * alpha) / (a - alpha);
+
+    return dew_point;
+}
+```
+
+#### 4.5.2 Humidification Control
+
+```cpp
+void control_humidification() {
+    float indoor_rh = read_humidity_sensor();
+    float rh_setpoint = get_humidity_setpoint();  // Typically 40-45% in winter
+    float rh_error = rh_setpoint - indoor_rh;
+
+    // Only humidify if below setpoint
+    if (rh_error > 5) {
+        humidifier_enable = true;
+
+        // Modulating control for steam humidifiers
+        if (has_modulating_humidifier) {
+            float capacity = constrain(rh_error * 10.0, 30.0, 100.0);
+            set_humidifier_output(capacity);
+        }
+
+        // Ensure adequate ventilation is maintained
+        ensure_minimum_ventilation();
+    } else if (rh_error < -2) {
+        humidifier_enable = false;
+    }
+
+    // Safety limit: prevent over-humidification
+    if (indoor_rh > MAX_SAFE_HUMIDITY) {
+        humidifier_enable = false;
+        log_warning("Maximum humidity limit reached");
+    }
+}
+```
+
+### 4.6 Multi-Source Coordination
+
+#### 4.6.1 Source Priority Selection
+
+```cpp
+struct HeatSource {
+    String name;
+    float cop;  // Current efficiency
+    float cost_per_kwh;
+    float max_capacity_kw;
+    float current_output_kw;
+    bool available;
+    int priority_score;
+};
+
+void select_heat_sources(float heat_demand_kw) {
+    std::vector<HeatSource> sources = get_all_heat_sources();
+
+    // Calculate priority score for each source
+    for (auto& source : sources) {
+        if (!source.available) {
+            source.priority_score = -1;
+            continue;
+        }
+
+        // Score = f(efficiency, cost, capacity)
+        // Higher score = higher priority
+        source.priority_score =
+            source.cop * EFFICIENCY_WEIGHT +
+            (1.0 / source.cost_per_kwh) * COST_WEIGHT +
+            (source.max_capacity_kw / 50.0) * CAPACITY_WEIGHT;
+    }
+
+    // Sort sources by priority
+    std::sort(sources.begin(), sources.end(),
+              [](HeatSource& a, HeatSource& b) {
+                  return a.priority_score > b.priority_score;
+              });
+
+    // Allocate load to sources in priority order
+    float remaining_demand = heat_demand_kw;
+
+    for (auto& source : sources) {
+        if (remaining_demand <= 0) break;
+
+        float allocated_output = min(remaining_demand, source.max_capacity_kw);
+        source.current_output_kw = allocated_output;
+        remaining_demand -= allocated_output;
+
+        activate_heat_source(source.name, allocated_output);
+    }
+}
+
+// Typical weights:
+// EFFICIENCY_WEIGHT = 50
+// COST_WEIGHT = 30
+// CAPACITY_WEIGHT = 20
+```
+
+### 4.7 Predictive Control
+
+#### 4.7.1 Weather-Compensated Control
+
+```cpp
+void weather_compensated_control() {
+    // Get weather forecast
+    WeatherForecast forecast = get_weather_forecast(6);  // 6 hours ahead
+
+    // Adjust heating curve based on forecast
+    if (forecast.temp_dropping && forecast.temp_change < -5) {
+        // Pre-heat in anticipation of cold front
+        supply_setpoint_adjustment = +5.0;
+    } else if (forecast.temp_rising && forecast.temp_change > 5) {
+        // Reduce heating in anticipation of warm-up
+        supply_setpoint_adjustment = -3.0;
+    }
+
+    // Adjust thermal mass charging
+    if (forecast.sunny && has_solar_thermal) {
+        // Prioritize solar charging before sun sets
+        increase_storage_tank_charging();
+    }
+}
+```
+
+#### 4.7.2 Occupancy Prediction
+
+```cpp
+void occupancy_predictive_control() {
+    // Learn occupancy patterns
+    OccupancyPattern pattern = get_learned_occupancy_pattern();
+
+    // Pre-condition space before expected occupancy
+    int minutes_before_occupancy = 60;  // 1 hour lead time
+
+    if (pattern.next_occupied_time - current_time < minutes_before_occupancy) {
+        // Ramp up to comfort setpoint
+        transition_to_occupied_setpoint();
+    } else if (pattern.next_unoccupied_time - current_time < 30) {
+        // Begin setback
+        transition_to_unoccupied_setpoint();
+    }
+}
+```
+
+### 4.8 Safety Limits & Interlocks
+
+#### 4.8.1 Temperature Limits
+
+```cpp
+void enforce_temperature_limits() {
+    // High limit protection
+    if (supply_temp > MAX_SUPPLY_TEMP_LIMIT) {
+        emergency_shutdown("OVER_TEMPERATURE");
+        log_critical("Supply temperature exceeded limit: " + String(supply_temp));
+    }
+
+    // Low limit freeze protection
+    if (return_temp < FREEZE_PROTECTION_TEMP) {
+        activate_freeze_protection();
+        log_warning("Freeze protection activated");
+    }
+
+    // Rate of change limit (detect sensor failure)
+    float temp_rate_of_change = abs(current_temp - previous_temp) / loop_time;
+    if (temp_rate_of_change > MAX_TEMP_CHANGE_RATE) {
+        log_error("Abnormal temperature rate of change detected");
+        sensor_fault_detected = true;
+    }
+}
+```
+
+#### 4.8.2 Equipment Protection Interlocks
+
+```cpp
+bool check_compressor_start_conditions() {
+    // Flow interlock
+    if (!is_flow_detected()) {
+        log_error("Cannot start compressor: No flow detected");
+        return false;
+    }
+
+    // Temperature limits
+    if (supply_temp > MAX_COMPRESSOR_START_TEMP) {
+        log_error("Cannot start compressor: Supply temp too high");
+        return false;
+    }
+
+    // Minimum off-time
+    if (millis() - last_compressor_stop < MIN_OFF_TIME_MS) {
+        log_info("Compressor off-time not met");
+        return false;
+    }
+
+    // Outdoor temperature limits
+    if (outdoor_temp < MIN_OUTDOOR_TEMP_FOR_OPERATION) {
+        log_error("Outdoor temp too low for heat pump operation");
+        return false;
+    }
+
+    return true;  // All conditions met
+}
+```
+
+---
+
 ## Document Revision History
 
 | Version | Date | Author | Changes |
@@ -1548,7 +2194,8 @@ Optocoupler Transistor:
 | 1.0.0 | 2025-11-18 | System Architect | Initial release - Section 1: Introduction & System Overview |
 | 1.0.1 | 2025-11-18 | System Architect | Added Section 2: System Architecture |
 | 1.0.2 | 2025-11-18 | System Architect | Added Section 3: Hardware Specifications |
+| 1.0.3 | 2025-11-18 | System Architect | Added Section 4: Control Logic & Algorithms |
 
 ---
 
-**Next Section:** Control Logic & Algorithms (Coming soon)
+**Next Section:** Heat Storage Management (Coming soon)
