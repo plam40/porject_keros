@@ -16,7 +16,7 @@ This document provides a comprehensive system description for the Keros Universa
 
 1. **Introduction & System Overview** ✓
 2. **System Architecture** ✓
-3. Hardware Specifications
+3. **Hardware Specifications** ✓
 4. Control Logic & Algorithms
 5. Heat Storage Management
 6. User Interface Requirements
@@ -862,13 +862,593 @@ For development and testing:
 
 ---
 
+## 3. Hardware Specifications
+
+### 3.1 Core Controller Platform
+
+#### 3.1.1 ESP32 Microcontroller
+
+**Selected Model:** ESP32-WROOM-32 or ESP32-WROVER (with PSRAM for advanced features)
+
+**Key Specifications:**
+- **CPU**: Dual-core Xtensa LX6, 240 MHz
+- **RAM**: 520 KB SRAM (WROOM) / 520 KB + 4-8 MB PSRAM (WROVER)
+- **Flash**: 4 MB minimum, 8-16 MB recommended
+- **WiFi**: 802.11 b/g/n, 2.4 GHz
+- **Bluetooth**: BLE 4.2 and Classic Bluetooth
+- **Operating Voltage**: 3.3V (with integrated voltage regulation from 5V)
+- **Operating Temperature**: -40°C to +85°C (industrial grade)
+- **Power Consumption**:
+  - Active (WiFi): ~160-260 mA
+  - Modem sleep: ~20-68 mA
+  - Deep sleep: ~10 µA
+
+**Peripheral Interfaces:**
+- **GPIO**: 34 programmable pins (some strapping/input-only)
+- **ADC**: 18 channels, 12-bit resolution (0-3.3V)
+- **DAC**: 2 channels, 8-bit
+- **Touch**: 10 capacitive touch sensors
+- **PWM**: 16 channels via LED PWM controller
+- **UART**: 3 ports
+- **SPI**: 4 controllers
+- **I2C**: 2 controllers
+- **I2S**: 2 channels (for audio or high-speed data)
+- **CAN**: 1 controller (via TWAI)
+
+#### 3.1.2 Justification for ESP32
+
+**Advantages:**
+1. **Dual-core architecture**: Separate cores for real-time control and network/UI tasks
+2. **Rich peripheral set**: Sufficient I/O for typical HVAC installations without expansion
+3. **Wireless connectivity**: Built-in WiFi and BLE eliminate need for external modules
+4. **Mature ecosystem**: Well-supported by ESP-IDF and Arduino frameworks
+5. **Cost-effective**: ~$3-5 per unit in volume
+6. **Low power options**: Deep sleep modes for battery backup scenarios
+7. **Industrial temperature range**: Suitable for mechanical room installations
+8. **Large community**: Extensive libraries and support
+
+**Limitations & Mitigations:**
+1. **Limited ADC accuracy**: Use external ADC (ADS1115) for critical measurements
+2. **3.3V logic**: Level shifters required for 5V/12V/24V industrial sensors
+3. **GPIO count**: Use I/O expanders (MCP23017) for systems requiring >30 I/O points
+4. **No native 4-20mA support**: External interface circuits required
+
+### 3.2 I/O Architecture
+
+#### 3.2.1 Input Types
+
+##### Temperature Sensors
+
+**Primary Method: 1-Wire DS18B20**
+- **Advantages**: Digital, calibrated, multiple sensors on one bus, up to 127 devices
+- **Range**: -55°C to +125°C
+- **Accuracy**: ±0.5°C (-10°C to +85°C)
+- **Resolution**: 9-12 bit (0.5°C to 0.0625°C)
+- **Interface**: 1-Wire protocol (one GPIO per bus, can daisy-chain)
+- **Typical Use**: Supply/return temperatures, zone temperatures, tank levels
+
+**Alternative: NTC Thermistors (10K, 3950 beta)**
+- **Advantages**: Low cost, widely available
+- **Interface**: Voltage divider → ADC
+- **Accuracy**: ±1-2°C with calibration
+- **Typical Use**: Non-critical temperature sensing
+
+**Alternative: PT1000 RTD**
+- **Advantages**: High accuracy, industrial standard
+- **Interface**: Precision ADC (ADS1118, MAX31865)
+- **Accuracy**: ±0.15°C (Class A)
+- **Typical Use**: High-precision applications, regulatory compliance
+
+##### Pressure Sensors
+
+**Standard: 0-10V or 4-20mA Transducers**
+- **Range**: Application specific (0-6 bar, 0-10 bar typical)
+- **Interface**:
+  - 0-10V: Voltage divider → ADC
+  - 4-20mA: Precision resistor (250Ω) → ADC or dedicated receiver
+- **Accuracy**: ±0.5-1% full scale
+- **Typical Use**: System pressure, differential pressure, refrigerant pressure
+
+**Digital Alternative: I2C Pressure Sensors (MS5837)**
+- **Advantages**: Direct digital reading, high accuracy
+- **Range**: Application specific
+- **Typical Use**: Compact installations, prototype development
+
+##### Flow Meters
+
+**Pulse-Based Flow Meters**
+- **Interface**: Digital input with interrupt
+- **Output**: Frequency proportional to flow rate (pulses/liter)
+- **Typical Use**: Heat meter integration, consumption monitoring
+- **Processing**: ESP32 PCNT (Pulse Counter) peripheral
+
+**Analog Flow Meters**
+- **Interface**: 4-20mA or 0-10V → ADC
+- **Typical Use**: Continuous flow monitoring
+
+##### Air Quality Sensors (for Ventilation Module)
+
+**CO₂ Sensor: SCD40 or MH-Z19**
+- **Interface**: I2C (SCD40) or UART (MH-Z19)
+- **Range**: 0-5000 ppm
+- **Accuracy**: ±50 ppm typical
+- **Typical Use**: Demand-controlled ventilation
+
+**VOC Sensor: BME680 or SGP40**
+- **Interface**: I2C
+- **Output**: IAQ (Indoor Air Quality) index or TVOC ppb
+- **Typical Use**: Air quality monitoring, ventilation control
+
+**Particulate Matter: PMS5003 or SPS30**
+- **Interface**: UART or I2C
+- **Output**: PM1.0, PM2.5, PM10 concentrations
+- **Typical Use**: Advanced ventilation control, filter monitoring
+
+##### Digital Inputs
+
+**Dry Contact Inputs** (thermostats, safety switches, float switches)
+- **Interface**: Optocoupled input, pull-up resistor
+- **Voltage Levels**: 5-24V AC/DC compatible
+- **Typical Use**: External enable signals, safety interlocks, zone demand
+
+**Binary Sensors** (reed switches, limit switches)
+- **Interface**: Direct GPIO with internal pull-up
+- **Typical Use**: Valve position feedback, access door sensors
+
+#### 3.2.2 Output Types
+
+##### Relay Outputs
+
+**Solid State Relays (SSR) or Mechanical Relays**
+- **Configuration**:
+  - On-board: 4-8 relays rated for inductive loads
+  - External: Via I2C relay modules for expansion
+- **Ratings**:
+  - SSR: 2A @ 240V AC (typical)
+  - Mechanical: 10A @ 250V AC / 30V DC
+- **Typical Use**:
+  - Compressor enable (via contactor)
+  - Backup heater control
+  - Zone valves (ON/OFF type)
+  - Circulation pumps (fixed speed)
+
+**Protection:**
+- Snubber circuits for inductive loads
+- Optical isolation between logic and power
+- LED indicators per relay
+- Fuse or resettable fuse (PTC) per channel
+
+##### PWM Outputs (0-10V or Direct PWM)
+
+**0-10V Control Signal**
+- **Generation**: PWM → Low-pass filter → Voltage follower (op-amp)
+- **Accuracy**: ±0.1V typical
+- **Load**: 1mA minimum (typical VFD input impedance)
+- **Typical Use**:
+  - Variable speed pump control
+  - Fan speed control
+  - Modulating valve control
+
+**Direct PWM (High Current)**
+- **Drive**: MOSFET driver circuit
+- **Frequency**: 25 kHz (above audible range)
+- **Current**: Up to 2A per channel
+- **Typical Use**:
+  - Direct pump control (PWM-capable circulators)
+  - DC fan control
+
+##### Analog Outputs (4-20mA)
+
+**Current Loop Transmitter**
+- **Circuit**: DAC or PWM → Voltage-to-current converter
+- **Accuracy**: ±0.2 mA
+- **Compliance Voltage**: 24V typical
+- **Typical Use**: Industrial actuators, legacy BMS integration
+
+##### High-Power Switching
+
+**Compressor Control**
+- **Method**: Relay output drives contactor (24V AC coil typical)
+- **Interlock**: Safety circuit ensures proper conditions before engagement
+- **Protection**: Minimum on/off times enforced in software
+
+**Three-Phase Equipment**
+- **Method**: Relay outputs to motor starters or VFDs
+- **Safety**: Phase monitoring, overload protection via external devices
+
+### 3.3 Reference Hardware Design
+
+#### 3.3.1 Minimal Configuration (Small Residential)
+
+**Use Case:** Single heat pump + buffer tank + 2 zones
+
+**I/O Requirements:**
+- **Temperature Inputs**: 6 (outdoor, supply, return, tank top/mid/bottom, 2x zones)
+- **Digital Inputs**: 2 (safety thermostat, flow switch)
+- **Relay Outputs**: 3 (compressor, pump primary, pump secondary)
+- **PWM Outputs**: 1 (modulating valve or pump speed)
+
+**Bill of Materials (BOM) - Core:**
+| Component | Qty | Description |
+|-----------|-----|-------------|
+| ESP32-WROOM-32 | 1 | Main controller |
+| DS18B20 | 6 | Temperature sensors |
+| 4.7kΩ resistor | 1 | 1-Wire pull-up |
+| SSR or Relay Module | 1 | 4-channel, optocoupled |
+| 0-10V Output Circuit | 1 | PWM → voltage converter |
+| 24V AC/DC Power Supply | 1 | DIN rail mount, 15W |
+| 5V DC-DC Converter | 1 | Buck converter for ESP32 |
+| Enclosure | 1 | DIN rail mountable, IP20 |
+| Terminal Blocks | 1 set | Screw terminals for wiring |
+
+**Estimated Cost (Prototype Quantities):** ~$50-70 USD
+
+#### 3.3.2 Standard Configuration (Typical Residential/Small Commercial)
+
+**Use Case:** Heat pump + backup heater + ventilation + solar thermal + 4 zones + heat storage
+
+**I/O Requirements:**
+- **Temperature Inputs**: 16 (extensive monitoring)
+- **Pressure Inputs**: 2 (system pressure, differential)
+- **Flow Inputs**: 2 (heat meter, solar circuit)
+- **Air Quality Inputs**: 3 (CO₂, VOC, humidity)
+- **Digital Inputs**: 4 (safety switches, zone demands)
+- **Relay Outputs**: 8 (compressor, pumps, valves, backup heater)
+- **PWM Outputs**: 4 (pump speeds, fan speed, modulating valve)
+
+**Bill of Materials (BOM) - Core:**
+| Component | Qty | Description |
+|-----------|-----|-------------|
+| ESP32-WROVER | 1 | Main controller (with PSRAM) |
+| DS18B20 | 16 | Temperature sensors |
+| ADS1115 | 1 | 16-bit ADC for precision analog inputs |
+| SCD40 | 1 | CO₂ + temperature + humidity sensor |
+| BME680 | 1 | VOC + pressure + temp + humidity |
+| MCP23017 | 1 | I2C I/O expander (16 additional GPIOs) |
+| SSR Module | 2 | 4-channel each (8 total) |
+| 0-10V Output Circuit | 4 | For variable speed control |
+| 4-20mA Input Circuit | 2 | Pressure transducer interface |
+| Pulse Counter Input | 2 | Optocoupled, for flow meters |
+| 24V AC/DC Power Supply | 1 | DIN rail mount, 30W |
+| 5V DC-DC Converter | 1 | Buck converter, 2A |
+| SD Card Module | 1 | For local data logging |
+| RTC Module (DS3231) | 1 | Real-time clock with battery backup |
+| OLED Display (Optional) | 1 | 128x64, I2C, for local status |
+| Enclosure | 1 | DIN rail mountable, IP20 or IP54 |
+| Terminal Blocks | 1 set | Screw terminals |
+
+**Estimated Cost (Prototype Quantities):** ~$120-150 USD
+
+#### 3.3.3 Advanced Configuration (Large Commercial/Industrial)
+
+**Use Case:** Multiple heat sources, complex zoning, advanced features
+
+**Expansion via:**
+- **Multiple MCP23017 I/O Expanders**: Up to 64 additional GPIOs
+- **Modbus RTU**: Integration with existing BMS, energy meters, VFDs
+- **CAN Bus**: Industrial equipment communication
+- **Ethernet Module (W5500)**: For installations requiring wired network
+
+**Additional Hardware:**
+- External watchdog timer (TPL5010)
+- UPS or battery backup for graceful shutdown
+- Industrial-grade components (wider temperature range)
+
+### 3.4 Power Supply Architecture
+
+#### 3.4.1 Power Distribution
+
+```
+24V AC/DC Supply (from HVAC control transformer or dedicated PSU)
+  │
+  ├──→ 5V DC-DC Buck Converter (2A)
+  │     │
+  │     ├──→ ESP32 (500mA typical)
+  │     ├──→ Sensors (I2C, 1-Wire: ~100mA)
+  │     ├──→ Display & SD Card (~50mA)
+  │     └──→ Signal Conditioning Circuits (~50mA)
+  │
+  └──→ 24V Relay Coils / Actuators
+        └──→ Individual fused channels
+```
+
+**Power Budget:**
+| Component | Current @ 5V | Current @ 24V |
+|-----------|--------------|---------------|
+| ESP32 (active WiFi) | 250 mA | - |
+| Sensors & Peripherals | 150 mA | - |
+| Display & SD Card | 50 mA | - |
+| Safety Margin | 50 mA | - |
+| **Total 5V** | **500 mA** | - |
+| Relay Coils (8x @ 20mA) | - | 160 mA |
+| Actuators (varies) | - | ~500 mA |
+| **Total 24V** | - | **~700 mA** |
+
+**Power Supply Selection:**
+- 5V Rail: 5V 2A DC-DC converter (buck) from 24V
+- 24V Rail: 24V AC/DC supply, 30W (1.25A)
+
+#### 3.4.2 Power Protection
+
+**Features:**
+- Reverse polarity protection (Schottky diode or MOSFET)
+- Overvoltage protection (TVS diodes)
+- Brownout detection (ESP32 monitors input voltage)
+- Graceful shutdown on power loss (supercapacitor bank for ~5 seconds hold-up)
+- Resettable fuses (PTC) on each output channel
+
+### 3.5 Signal Conditioning
+
+#### 3.5.1 Analog Input Conditioning
+
+**Temperature (NTC Thermistor):**
+```
+VCC (3.3V) ──┬──[ 10kΩ ]──┬── ADC Input
+              │            │
+              │         [NTC 10K]
+              │            │
+             GND ─────────┴── GND
+```
+
+**Voltage Input (0-10V → 0-3.3V):**
+```
+0-10V Input ──[ R1: 20kΩ ]──┬── ADC Input
+                             │
+                         [ R2: 10kΩ ]
+                             │
+                            GND
+```
+(Voltage divider ratio: 1:3, maps 0-10V to 0-3.3V)
+
+**Current Input (4-20mA → 0-3.3V):**
+```
+4-20mA Input ──[ 165Ω ]──┬── ADC Input
+                          │
+                         GND
+```
+(4mA × 165Ω = 0.66V, 20mA × 165Ω = 3.3V)
+
+**Filtering:**
+- RC low-pass filter on all analog inputs (fc = 10-100 Hz)
+- Software averaging (moving average, 10 samples typical)
+
+#### 3.5.2 PWM Output Conditioning (PWM → 0-10V)
+
+```
+ESP32 PWM ──[ R1: 10kΩ ]──┬── C1 (10µF) ──┬─┬─ Op-Amp Buffer ─→ 0-10V Output
+                          GND             │ │
+                                        [R2:10kΩ] (to ground)
+                                          │
+                                     ADC for feedback
+```
+
+**Op-Amp Requirements:**
+- Rail-to-rail output
+- Low offset voltage
+- Example: MCP6002, TLV272
+
+#### 3.5.3 Digital Input Conditioning (Optocoupler)
+
+```
+24V External ──[ R: 2.2kΩ ]──┬── Optocoupler LED
+                              │
+                       External Ground
+
+Optocoupler Transistor:
+  Collector ──[ Pull-up 10kΩ ]── 3.3V
+  Collector ────────────────────── GPIO Input
+  Emitter ──────────────────────── GND
+```
+
+**Isolation:** 2.5 kV typical (optocoupler rating)
+
+### 3.6 Expansion Options
+
+#### 3.6.1 I/O Expansion
+
+**I2C I/O Expander (MCP23017)**
+- 16 additional GPIOs per chip
+- Up to 8 devices per I2C bus (128 GPIOs total)
+- Interrupt capability for input monitoring
+- Use Case: Large zoning systems, extensive sensor arrays
+
+**I2C Relay Modules**
+- 4-16 relays per module
+- Optical isolation
+- Stackable/chainable
+
+#### 3.6.2 Communication Expansion
+
+**Modbus RTU (RS485)**
+- **Interface**: MAX485 or similar transceiver
+- **Use Case**: Integration with energy meters, VFDs, existing BMS
+- **Topology**: Multi-drop bus, up to 32 devices
+- **Termination**: 120Ω resistors at both ends
+
+**Ethernet (W5500 Module)**
+- **Interface**: SPI
+- **Use Case**: Installations requiring wired network
+- **Advantage**: More reliable than WiFi in industrial environments
+
+**CAN Bus (TWAI on ESP32)**
+- **Interface**: MCP2551 or TJA1050 transceiver
+- **Use Case**: Industrial equipment integration
+- **Topology**: Multi-drop bus, up to 110 devices
+
+#### 3.6.3 Display Options
+
+**Local Display:**
+- OLED (SSD1306): 128x64, I2C, low power, good readability
+- TFT LCD (ILI9341): 240x320, SPI, color touchscreen
+- E-Paper: Ultra-low power, excellent readability, slow refresh
+
+**Use Case:** Local status display, basic configuration, fault indication
+
+### 3.7 Environmental & Mechanical
+
+#### 3.7.1 Operating Environment
+
+**Temperature Range:**
+- Standard: 0°C to +60°C (typical mechanical room)
+- Industrial: -10°C to +70°C (with industrial-grade components)
+- Extended: -40°C to +85°C (requires specialized parts)
+
+**Humidity:**
+- 0-95% RH, non-condensing
+- Conformal coating recommended for high-humidity environments
+
+**Enclosure Rating:**
+- **IP20**: Indoor installation, protected against fingers
+- **IP54**: Dustproof, splash-proof (for harsh environments)
+- **DIN Rail Mounting**: Standard 35mm DIN rail
+
+#### 3.7.2 Wiring & Installation
+
+**Sensor Wiring:**
+- 1-Wire (DS18B20): CAT5/CAT6 cable, up to 100m with proper topology
+- Analog Sensors: Shielded twisted pair, shield grounded at controller end
+- Digital Inputs: 2-wire, 18-22 AWG
+
+**Power Wiring:**
+- Low Voltage (<50V): 18-22 AWG, comply with local codes
+- Line Voltage (>50V): Must be installed by licensed electrician
+- Separation: Maintain 50mm minimum spacing between low and line voltage
+
+**Connector Types:**
+- Screw terminals: 22-14 AWG wire
+- Plug-in terminal blocks: For easy service/replacement
+- RJ45/RJ11: For sensor "home runs" in structured wiring
+
+### 3.8 Reference Schematics
+
+#### 3.8.1 Core Controller Board
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                       ESP32 CONTROLLER                           │
+│                                                                   │
+│  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐    │
+│  │  ESP32   │   │ ADS1115  │   │ MCP23017 │   │  DS3231  │    │
+│  │ WROVER   │◄─►│  16-bit  │   │   I/O    │   │   RTC    │    │
+│  │          │   │   ADC    │   │ Expander │   │          │    │
+│  └────┬─────┘   └──────────┘   └──────────┘   └──────────┘    │
+│       │                                                          │
+│       │         ┌──────────┐   ┌──────────┐   ┌──────────┐    │
+│       │         │  SD Card │   │   OLED   │   │  WiFi/BT │    │
+│       └────────►│  Logger  │   │  Display │   │ Antenna  │    │
+│                 └──────────┘   └──────────┘   └──────────┘    │
+│                                                                  │
+│  INPUT SECTION:                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 1-Wire Bus (DS18B20 x16)                                 │  │
+│  │ Analog In (0-10V / 4-20mA) via ADS1115 x4                │  │
+│  │ Digital In (Optocoupled) x8                              │  │
+│  │ Pulse Counter (Flow meters) x2                           │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  OUTPUT SECTION:                                                 │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ SSR/Relay Outputs (via driver, optical isolation) x8     │  │
+│  │ PWM → 0-10V (via filter + op-amp) x4                     │  │
+│  │ 4-20mA Output (via V-to-I converter) x2 (optional)       │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  POWER:                                                          │
+│  24V AC/DC In → Buck Converter → 5V 2A → ESP32 + Peripherals   │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+*(Note: Full detailed schematics to be provided in hardware design documentation)*
+
+#### 3.8.2 Pin Assignment Example
+
+**ESP32 GPIO Allocation (Reference):**
+
+| GPIO | Function | Direction | Notes |
+|------|----------|-----------|-------|
+| 0 | Boot Mode | Input | Pull-up, bootstrap |
+| 1 | UART0 TX | Output | Debug/programming |
+| 2 | Built-in LED | Output | Status indicator |
+| 3 | UART0 RX | Input | Debug/programming |
+| 4 | 1-Wire Bus | I/O | DS18B20 sensors |
+| 5 | Relay 1 | Output | Via driver |
+| 12 | Relay 2 | Output | Via driver |
+| 13 | Relay 3 | Output | Via driver |
+| 14 | Relay 4 | Output | Via driver |
+| 15 | PWM Out 1 | Output | For 0-10V conversion |
+| 16 | PWM Out 2 | Output | For 0-10V conversion |
+| 17 | PWM Out 3 | Output | For 0-10V conversion |
+| 18 | SPI SCK | Output | SD card, display |
+| 19 | SPI MISO | Input | SD card |
+| 21 | I2C SDA | I/O | Sensors, expanders |
+| 22 | I2C SCL | Output | Sensors, expanders |
+| 23 | SPI MOSI | Output | SD card, display |
+| 25 | Digital In 1 | Input | Optocoupled |
+| 26 | Digital In 2 | Input | Optocoupled |
+| 27 | Digital In 3 | Input | Optocoupled |
+| 32 | Digital In 4 | Input | Optocoupled |
+| 33 | Pulse In 1 | Input | Flow meter (PCNT) |
+| 34 | Pulse In 2 | Input | Flow meter (PCNT) |
+| 35 | ADC Direct 1 | Input | Voltage sense |
+| 36 | ADC Direct 2 | Input | Voltage sense |
+
+**Reserved/Special Pins:**
+- GPIO 6-11: Connected to internal flash (do not use)
+- GPIO 34-39: Input-only (no pull-up/pull-down)
+
+### 3.9 Certification & Compliance
+
+#### 3.9.1 Electrical Safety
+
+**Standards:**
+- IEC 60730: Automatic electrical controls for household and similar use
+- UL 60730-1: Safety standard for control devices (North America)
+- EN 60730: European standard for control devices
+
+**Key Requirements:**
+- Clearance and creepage distances between line and low voltage
+- Insulation testing (Hi-Pot test)
+- Protective earth (PE) connection for metal enclosures
+- Fusing on all line voltage outputs
+
+#### 3.9.2 EMC (Electromagnetic Compatibility)
+
+**Standards:**
+- EN 61000-6-1: Immunity for residential environments
+- EN 61000-6-2: Immunity for industrial environments
+- EN 61000-6-3: Emissions for residential environments
+- EN 61000-6-4: Emissions for industrial environments
+
+**Design Considerations:**
+- Shielded enclosure with proper grounding
+- Filtering on all inputs/outputs crossing enclosure boundary
+- Suppression components on relay coils (snubbers, flyback diodes)
+- Twisted pair wiring for differential signals
+- Ferrite beads on cables
+
+#### 3.9.3 Radio (WiFi/BLE)
+
+**Standards:**
+- FCC Part 15 (USA)
+- CE RED (Europe)
+- IC (Canada)
+
+**Compliance:**
+- ESP32 modules with pre-certified radio (FCC/CE markings)
+- Antenna design per module manufacturer specifications
+- Final product testing recommended for commercial deployment
+
+---
+
 ## Document Revision History
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0.0 | 2025-11-18 | System Architect | Initial release - Section 1: Introduction & System Overview |
 | 1.0.1 | 2025-11-18 | System Architect | Added Section 2: System Architecture |
+| 1.0.2 | 2025-11-18 | System Architect | Added Section 3: Hardware Specifications |
 
 ---
 
-**Next Section:** Hardware Specifications (Coming soon)
+**Next Section:** Control Logic & Algorithms (Coming soon)
