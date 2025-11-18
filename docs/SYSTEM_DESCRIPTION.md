@@ -17,13 +17,13 @@ This document provides a comprehensive system description for the Keros Universa
 1. **Introduction & System Overview** ✓
 2. **System Architecture** ✓
 3. **Hardware Specifications** ✓
-4. Control Logic & Algorithms
-5. Heat Storage Management
-6. User Interface Requirements
-7. Modular Design & Extensibility
-8. Communication Protocols
-9. Safety & Monitoring
-10. Installation & Deployment
+4. **Control Logic & Algorithms** ✓
+5. **Heat Storage Management** ✓
+6. **User Interface Requirements** ✓
+7. **Modular Design & Extensibility** ✓
+8. **Communication Protocols** ✓
+9. **Safety & Monitoring** ✓
+10. **Installation & Deployment** ✓
 
 ---
 
@@ -98,6 +98,16 @@ The Keros Universal HVAC Controller is designed to be a comprehensive, future-pr
 - **Seamless Switching**: Smooth transitions between heat sources
 - **Load Balancing**: Distribute demand across sources for optimal efficiency
 - **Renewable Energy Prioritization**: Maximize use of solar, geothermal, or other renewables
+
+#### 1.3.6 Humidity Control & Dehumidification
+- **Multi-Zone Humidity Monitoring**: Individual zone humidity tracking with high-precision sensors
+- **Active Dehumidification**: Integration with dedicated dehumidifiers, heat pump cooling, or ERV systems
+- **Humidification Control**: Coordination with steam or evaporative humidifiers for optimal comfort
+- **Condensation Prevention**: Dew point monitoring to prevent condensation on cold surfaces
+- **Seasonal Adjustment**: Automatic humidity setpoint adaptation based on outdoor conditions
+- **Health & Comfort Optimization**: Maintain optimal 40-60% RH range for health and comfort
+- **Mold Prevention**: Continuous monitoring and control to prevent high-humidity conditions
+- **Integration with Ventilation**: Coordinated control between humidity and ventilation systems
 
 ### 1.4 System Capabilities
 
@@ -253,16 +263,16 @@ The Keros system follows a **Skeleton + Module** architecture as defined in the 
 │          │        (Event Bus / Message Queue)     │              │
 │          └───────────────┬───────────────────────┘              │
 │                          │                                       │
-│  ┌──────────┬───────────┬┴──────────┬───────────┬─────────┐    │
-│  │          │           │            │           │         │    │
-│  ▼          ▼           ▼            ▼           ▼         ▼    │
-│ ┌──┐      ┌──┐        ┌──┐        ┌──┐       ┌──┐      ┌──┐   │
-│ │HP│      │VE│        │PM│        │HS│       │MS│      │TC│   │
-│ │ M│      │NT│        │ P│        │ M│       │ C│      │ M│   │
-│ └──┘      └──┘        └──┘        └──┘       └──┘      └──┘   │
-│Heat      Vent     Pump        Heat       Multi-    Telemetry   │
-│Pump      Module   Module      Storage    Source    & Cloud     │
-│Module                         Module     Ctrl      Module       │
+│  ┌────────┬──────────┬──┴────┬──────────┬──────────┬──────────┬────┐
+│  │        │          │       │          │          │          │    │
+│  ▼        ▼          ▼       ▼          ▼          ▼          ▼    │
+│ ┌──┐    ┌──┐      ┌──┐    ┌──┐      ┌──┐      ┌──┐      ┌──┐    │
+│ │HP│    │VE│      │PM│    │HS│      │MS│      │HC│      │TC│    │
+│ │ M│    │NT│      │ P│    │ M│      │ C│      │ M│      │ M│    │
+│ └──┘    └──┘      └──┘    └──┘      └──┘      └──┘      └──┘    │
+│Heat    Vent    Pump    Heat     Multi-   Humidity Telemetry    │
+│Pump    Module  Module  Storage  Source   Control  & Cloud      │
+│Module                  Module   Ctrl     Module   Module        │
 └─────────────────────────────────┬───────────────────────────────┘
                                   │
 ┌─────────────────────────────────┴───────────────────────────────┐
@@ -607,6 +617,31 @@ module_name/
 - Load sharing percentages
 - Operating mode selection
 
+##### Humidity Control Module (HCM)
+**Purpose:** Manages indoor humidity levels for comfort, health, and building protection
+
+**Responsibilities:**
+- Multi-zone humidity monitoring and control
+- Dew point calculation and condensation prevention
+- Dehumidifier/humidifier coordination
+- Integration with cooling and ventilation systems
+- Seasonal humidity setpoint adjustment
+- Mold risk assessment and prevention
+
+**Inputs:**
+- Indoor humidity sensors (per zone)
+- Outdoor humidity and temperature
+- Surface temperature sensors (cold surfaces)
+- Occupancy data
+- Weather forecast
+
+**Outputs:**
+- Dehumidifier control (on/off or variable speed)
+- Humidifier control (steam, evaporative)
+- Cooling mode activation for dehumidification
+- Ventilation adjustment commands
+- ERV/HRV mode selection
+
 ##### Telemetry & Cloud Module (TCM)
 **Purpose:** External communication, logging, and cloud integration
 
@@ -755,7 +790,7 @@ void MultiSourceController::on_event(Event& event) {
 ```
 ┌────────────────────────────────────────────────┐
 │         Application Layer                      │
-│  - Modules (HPM, VENT, PMP, HSM, MSC, TCM)    │
+│  - Modules (HPM, VENT, PMP, HSM, MSC, HCM, TCM)│
 └────────────────┬───────────────────────────────┘
                  │
 ┌────────────────┴───────────────────────────────┐
@@ -811,12 +846,13 @@ Estimated memory usage:
 | Pump Module | 6 | 24 |
 | Heat Storage Module | 10 | 40 |
 | Multi-Source Controller | 12 | 48 |
+| Humidity Control Module | 8 | 28 |
 | Telemetry Module | 15 | 60 |
 | Web UI (SPIFFS) | - | 200 |
 | Configuration/Logs | 20 | 100 |
-| **Total Estimated** | **157 KB** | **1128 KB** |
+| **Total Estimated** | **165 KB** | **1156 KB** |
 | **ESP32 Available** | 520 KB | 4096 KB |
-| **Margin** | **363 KB (70%)** | **2968 KB (72%)** |
+| **Margin** | **355 KB (68%)** | **2940 KB (72%)** |
 
 ### 2.8 Extensibility Mechanisms
 
@@ -966,6 +1002,36 @@ For development and testing:
 - **Interface**: 4-20mA or 0-10V → ADC
 - **Typical Use**: Continuous flow monitoring
 
+##### Humidity Sensors (for Humidity Control Module)
+
+**Primary: Capacitive Humidity Sensors (SHT31, SHT40, BME280, BME680)**
+- **Interface**: I2C
+- **Range**: 0-100% RH
+- **Accuracy**: ±2-3% RH typical (±1.5% RH for SHT40)
+- **Response Time**: <8 seconds (τ63%)
+- **Temperature Compensation**: Built-in
+- **Typical Use**: Zone humidity monitoring, dew point calculation
+- **Notes**: BME680 includes VOC sensor; BME280 includes pressure sensor
+
+**Alternative: Resistive Humidity Sensors**
+- **Interface**: Analog (resistance change)
+- **Range**: 20-90% RH
+- **Accuracy**: ±5% RH
+- **Typical Use**: Low-cost installations, non-critical zones
+
+**Surface Condensation Sensors**
+- **Type**: Temperature + Humidity sensor pair
+- **Purpose**: Monitor cold surfaces (windows, walls) for condensation risk
+- **Calculation**: Dew point vs. surface temperature differential
+- **Typical Use**: Condensation prevention, mold risk assessment
+
+**Dew Point Calculation:**
+```
+Dew Point (°C) ≈ T - ((100 - RH) / 5)
+Where: T = temperature (°C), RH = relative humidity (%)
+More accurate: Magnus-Tetens formula or lookup tables
+```
+
 ##### Air Quality Sensors (for Ventilation Module)
 
 **CO₂ Sensor: SCD40 or MH-Z19**
@@ -1055,6 +1121,40 @@ For development and testing:
 **Three-Phase Equipment**
 - **Method**: Relay outputs to motor starters or VFDs
 - **Safety**: Phase monitoring, overload protection via external devices
+
+##### Humidity Control Outputs
+
+**Dehumidifier Control**
+- **Type**: Relay output (on/off) or variable speed (PWM/0-10V)
+- **Options**:
+  - Standalone dehumidifier: Relay for power control
+  - Variable capacity: 0-10V speed control
+  - Heat pump cooling mode: Relay + temperature control
+- **Typical Capacity**: 30-70 liters/day (residential)
+- **Integration**: Coordinate with cooling system to avoid conflicts
+
+**Humidifier Control**
+- **Steam Humidifier**:
+  - Control: Relay (on/off) or modulating (0-10V)
+  - Power: 120-240V AC, 500-3000W typical
+  - Response Time: Fast (minutes)
+  - Safety: Auto-shutoff on low water, high-limit humidistat
+
+- **Evaporative Humidifier**:
+  - Control: Relay for water valve, fan speed (PWM/0-10V)
+  - Power: 24V water valve, 120V fan
+  - Response Time: Moderate (10-30 minutes)
+  - Maintenance: Regular cleaning, filter replacement
+
+**ERV/HRV Humidity Management**
+- **Winter Mode**: Heat recovery, minimal outdoor air for humidity control
+- **Summer Mode**: Bypass or ERV mode to reduce humidity
+- **Control**: Damper position (0-10V) or mode selection (relay)
+
+**Condensate Drain Management**
+- **Drain Pump**: Relay control for condensate removal
+- **Safety**: Float switch for overflow protection
+- **Typical Use**: Dehumidifier, cooling coil condensate
 
 ### 3.3 Reference Hardware Design
 
@@ -1441,6 +1541,2376 @@ Optocoupler Transistor:
 
 ---
 
+## 4. Control Logic & Algorithms
+
+### 4.1 Overview
+
+The Keros system employs sophisticated control algorithms to optimize comfort, efficiency, and equipment longevity. Control strategies range from simple PID loops to advanced model predictive control (MPC) with weather forecasting integration.
+
+**Control Objectives (Priority Order):**
+1. **Safety**: Protect equipment and occupants (highest priority)
+2. **Comfort**: Maintain setpoints within acceptable deadbands
+3. **Efficiency**: Minimize energy consumption while meeting comfort requirements
+4. **Equipment Protection**: Reduce wear through optimized operation
+5. **Cost Optimization**: Leverage time-of-use pricing and demand response
+
+### 4.2 Temperature Control Algorithms
+
+#### 4.2.1 PID Control Fundamentals
+
+The system uses PID (Proportional-Integral-Derivative) control as the foundation for temperature regulation.
+
+**PID Equation:**
+```
+Output(t) = Kp × e(t) + Ki × ∫e(t)dt + Kd × de(t)/dt
+
+Where:
+  e(t) = Setpoint - Measured_Value (error)
+  Kp = Proportional gain
+  Ki = Integral gain
+  Kd = Derivative gain
+```
+
+**Tuning Parameters (Typical Values):**
+
+| Application | Kp | Ki | Kd | Notes |
+|-------------|----|----|----|----|
+| Zone Temperature | 2.0-5.0 | 0.01-0.05 | 0.1-0.5 | Slow response acceptable |
+| Supply Temperature | 5.0-10.0 | 0.05-0.1 | 0.5-1.0 | Faster response needed |
+| Storage Tank | 1.0-3.0 | 0.005-0.02 | 0.05-0.2 | Avoid oscillation |
+| Humidity Control | 0.5-2.0 | 0.001-0.01 | 0.0-0.1 | Very slow process |
+
+**Anti-Windup:**
+```cpp
+// Integral term limiting to prevent windup
+float integral_term = integral_accumulator * Ki;
+if (integral_term > MAX_INTEGRAL_OUTPUT) {
+    integral_term = MAX_INTEGRAL_OUTPUT;
+    integral_accumulator = MAX_INTEGRAL_OUTPUT / Ki;
+}
+```
+
+**Derivative Filtering:**
+```cpp
+// Low-pass filter on derivative to reduce noise sensitivity
+derivative_filtered = ALPHA * derivative_raw + (1 - ALPHA) * derivative_previous;
+// Typical ALPHA = 0.1 to 0.3
+```
+
+#### 4.2.2 Adaptive PID
+
+The system automatically adjusts PID parameters based on operating conditions:
+
+**Load-Based Adaptation:**
+```cpp
+void adapt_pid_gains(float current_load_percent) {
+    // Increase aggressiveness at higher loads
+    Kp_effective = Kp_base * (1.0 + 0.5 * current_load_percent / 100.0);
+
+    // Reduce integral action at low loads to prevent overshoot
+    Ki_effective = Ki_base * (0.5 + 0.5 * current_load_percent / 100.0);
+}
+```
+
+**Seasonal Adaptation:**
+- Winter (heating): Increase Kp for faster response to cold outdoor conditions
+- Summer (cooling): Decrease Kd to reduce oscillation from solar gains
+- Shoulder seasons: Balanced tuning for mixed heating/cooling
+
+#### 4.2.3 Cascaded Control
+
+Multi-stage control for improved performance:
+
+```
+┌────────────────────────────────────────────────────┐
+│  Zone Temperature Controller (Outer Loop)          │
+│  Setpoint: 21°C, Measured: 20.5°C                  │
+│  Output: Supply Temperature Setpoint = 45°C        │
+└────────────────┬───────────────────────────────────┘
+                 │
+                 ▼
+┌────────────────────────────────────────────────────┐
+│  Supply Temperature Controller (Inner Loop)        │
+│  Setpoint: 45°C, Measured: 42°C                    │
+│  Output: Heat Source Demand = 75%                  │
+└────────────────┬───────────────────────────────────┘
+                 │
+                 ▼
+          [Heat Source Actuation]
+```
+
+**Benefits:**
+- Faster disturbance rejection
+- Improved stability
+- Separation of concerns (comfort vs. equipment control)
+
+### 4.3 Heat Pump Control Algorithms
+
+#### 4.3.1 Compressor Control Strategies
+
+**On/Off Control (Fixed Capacity Heat Pumps):**
+
+```cpp
+void control_on_off_compressor() {
+    // Minimum runtime protection
+    if (compressor_on && (millis() - compressor_start_time < MIN_RUNTIME_MS)) {
+        return;  // Cannot turn off yet
+    }
+
+    // Minimum off-time protection
+    if (!compressor_on && (millis() - compressor_stop_time < MIN_OFF_TIME_MS)) {
+        return;  // Cannot turn on yet
+    }
+
+    // Hysteresis control
+    float temp_error = supply_setpoint - supply_temperature;
+
+    if (temp_error > DEADBAND_ON) {
+        compressor_enable = true;
+    } else if (temp_error < -DEADBAND_OFF) {
+        compressor_enable = false;
+    }
+    // Else: maintain current state (hysteresis)
+}
+
+// Typical values:
+// MIN_RUNTIME_MS = 300000 (5 minutes)
+// MIN_OFF_TIME_MS = 180000 (3 minutes)
+// DEADBAND_ON = 2.0°C
+// DEADBAND_OFF = -0.5°C
+```
+
+**Variable Capacity Control (Inverter Heat Pumps):**
+
+```cpp
+void control_variable_compressor() {
+    // PID control for capacity modulation
+    float error = supply_setpoint - supply_temperature;
+
+    float capacity_demand = pid_controller.calculate(error);
+
+    // Apply rate limiting (prevent rapid changes)
+    float max_change_per_second = 10.0;  // % per second
+    float max_change = max_change_per_second * loop_time_seconds;
+
+    capacity_demand = constrain_rate_of_change(
+        capacity_demand,
+        previous_capacity,
+        max_change
+    );
+
+    // Apply operational limits
+    capacity_output = constrain(capacity_demand, MIN_CAPACITY_PERCENT, 100.0);
+
+    // Convert to 0-10V or PWM signal
+    set_compressor_speed(capacity_output);
+}
+```
+
+#### 4.3.2 COP Optimization
+
+**Real-Time COP Calculation:**
+
+```cpp
+float calculate_cop() {
+    // Measure heat output
+    float flow_rate_lps = read_flow_meter();  // liters per second
+    float delta_t = supply_temp - return_temp;  // °C
+    float heat_output_kw = flow_rate_lps * 4.186 * delta_t;  // kW
+
+    // Measure electrical input
+    float power_input_kw = read_power_meter();  // kW
+
+    // Calculate COP
+    float cop = heat_output_kw / power_input_kw;
+
+    // Apply sanity checks
+    if (cop < 1.0 || cop > 8.0) {
+        log_error("COP out of range: " + String(cop));
+        return -1;  // Invalid
+    }
+
+    return cop;
+}
+```
+
+**COP-Based Operating Point Optimization:**
+
+```cpp
+void optimize_operating_point() {
+    float current_cop = calculate_cop();
+
+    // Adjust supply temperature to maximize COP while meeting load
+    if (current_cop > 0 && load_met) {
+        // Lower supply temp improves COP (if load still met)
+        if (current_cop < target_cop_threshold) {
+            supply_setpoint -= 0.5;  // Decrease by 0.5°C
+            supply_setpoint = max(supply_setpoint, MIN_SUPPLY_TEMP);
+        }
+    } else if (!load_met) {
+        // Increase supply temp to meet load
+        supply_setpoint += 0.5;
+        supply_setpoint = min(supply_setpoint, MAX_SUPPLY_TEMP);
+    }
+}
+```
+
+**Weather-Compensated Supply Temperature:**
+
+```cpp
+float calculate_supply_setpoint(float outdoor_temp, float indoor_setpoint) {
+    // Heating curve: lower outdoor temp → higher supply temp
+    // Typical curve: supply = 45°C at 0°C outdoor, 25°C at 20°C outdoor
+
+    float slope = (MAX_SUPPLY_TEMP - MIN_SUPPLY_TEMP) /
+                  (MIN_OUTDOOR_TEMP - MAX_OUTDOOR_TEMP);
+
+    float supply_setpoint = MAX_SUPPLY_TEMP + slope * (outdoor_temp - MIN_OUTDOOR_TEMP);
+
+    // Apply limits
+    supply_setpoint = constrain(supply_setpoint, MIN_SUPPLY_TEMP, MAX_SUPPLY_TEMP);
+
+    return supply_setpoint;
+}
+```
+
+#### 4.3.3 Defrost Control
+
+**Frost Detection:**
+
+```cpp
+bool is_defrost_needed() {
+    // Method 1: Time-temperature integration
+    if (outdoor_temp < FROST_THRESHOLD &&
+        runtime_minutes > DEFROST_INTERVAL_MIN) {
+        return true;
+    }
+
+    // Method 2: Temperature differential
+    float delta_t = evaporator_temp - outdoor_temp;
+    if (delta_t > DEFROST_DELTA_T_THRESHOLD) {
+        return true;  // Frost buildup indicated
+    }
+
+    // Method 3: Pressure differential (if sensors available)
+    if (has_pressure_sensors) {
+        if (evap_pressure_drop > FROST_PRESSURE_THRESHOLD) {
+            return true;
+        }
+    }
+
+    return false;
+}
+```
+
+**Defrost Execution:**
+
+```cpp
+void execute_defrost_cycle() {
+    // 1. Switch to defrost mode
+    set_reversing_valve(COOLING_MODE);  // Reverse refrigerant flow
+    compressor_enable = true;
+    outdoor_fan_enable = false;  // Stop outdoor fan
+
+    // 2. Monitor defrost progress
+    while (defrost_active) {
+        if (evaporator_temp > DEFROST_COMPLETE_TEMP ||
+            defrost_time > MAX_DEFROST_TIME) {
+            // Defrost complete
+            break;
+        }
+        delay(1000);
+    }
+
+    // 3. Return to normal operation
+    set_reversing_valve(HEATING_MODE);
+    outdoor_fan_enable = true;
+
+    // 4. Log defrost metrics
+    log_defrost_cycle(defrost_duration, energy_used);
+}
+```
+
+### 4.4 Ventilation Control Algorithms
+
+#### 4.4.1 Demand-Controlled Ventilation (DCV)
+
+**CO₂-Based Control:**
+
+```cpp
+void control_ventilation_co2() {
+    float co2_ppm = read_co2_sensor();
+
+    // Setpoint: 800-1000 ppm (ASHRAE 62.1 recommendation)
+    float co2_setpoint = 1000;
+    float co2_error = co2_ppm - co2_setpoint;
+
+    // Calculate airflow demand (% of max)
+    float airflow_percent;
+
+    if (co2_ppm < 600) {
+        airflow_percent = MIN_AIRFLOW_PERCENT;  // Minimum ventilation
+    } else if (co2_ppm > 1500) {
+        airflow_percent = 100.0;  // Maximum ventilation
+    } else {
+        // Proportional band: 600-1500 ppm
+        airflow_percent = map_float(co2_ppm, 600, 1500, MIN_AIRFLOW_PERCENT, 100.0);
+    }
+
+    set_fan_speed(airflow_percent);
+}
+```
+
+**Occupancy-Based Control:**
+
+```cpp
+void control_ventilation_occupancy() {
+    int occupant_count = get_occupancy_count();
+
+    // ASHRAE 62.1: 15 CFM per person + base ventilation
+    float base_airflow_cfm = FLOOR_AREA_SQF * 0.06;  // Area component
+    float occupancy_airflow_cfm = occupant_count * 15;  // People component
+
+    float total_required_cfm = base_airflow_cfm + occupancy_airflow_cfm;
+
+    // Convert to fan speed percentage
+    float airflow_percent = (total_required_cfm / MAX_AIRFLOW_CFM) * 100.0;
+    airflow_percent = constrain(airflow_percent, MIN_AIRFLOW_PERCENT, 100.0);
+
+    set_fan_speed(airflow_percent);
+}
+```
+
+#### 4.4.2 Heat Recovery Optimization
+
+**ERV/HRV Mode Selection:**
+
+```cpp
+void select_hrv_erv_mode() {
+    float indoor_temp = read_indoor_temp();
+    float outdoor_temp = read_outdoor_temp();
+    float indoor_humidity = read_indoor_humidity();
+    float outdoor_humidity = read_outdoor_humidity();
+
+    // Summer: High outdoor humidity → ERV to remove moisture
+    if (outdoor_temp > 25 && outdoor_humidity > 70) {
+        set_mode(ERV_MODE);  // Energy Recovery Ventilation
+    }
+    // Winter: Dry outdoor air → HRV to retain indoor moisture
+    else if (outdoor_temp < 5 && outdoor_humidity < 40) {
+        set_mode(HRV_MODE);  // Heat Recovery Ventilation only
+    }
+    // Shoulder seasons: Use bypass if beneficial
+    else if (outdoor_temp > indoor_temp && cooling_desired) {
+        set_bypass(OPEN);  // Free cooling
+    } else {
+        set_mode(HRV_MODE);
+        set_bypass(CLOSED);
+    }
+}
+```
+
+### 4.5 Humidity Control Algorithms
+
+#### 4.5.1 Dehumidification Control
+
+**Priority-Based Dehumidification:**
+
+```cpp
+void control_dehumidification() {
+    float indoor_rh = read_humidity_sensor();
+    float rh_setpoint = get_humidity_setpoint();  // Typically 50-55%
+    float rh_error = indoor_rh - rh_setpoint;
+
+    // Priority 1: Use existing cooling system if active
+    if (cooling_mode_active && rh_error > 5) {
+        // Reduce supply temp to enhance dehumidification
+        reduce_supply_temp_for_dehumidification();
+    }
+
+    // Priority 2: Activate dedicated dehumidifier
+    else if (rh_error > 10) {
+        dehumidifier_enable = true;
+
+        // Variable capacity control if supported
+        if (has_variable_dehumidifier) {
+            float capacity = constrain(rh_error * 5.0, 30.0, 100.0);
+            set_dehumidifier_capacity(capacity);
+        }
+    }
+
+    // Priority 3: Increase ventilation if outdoor humidity is lower
+    else if (rh_error > 5 && outdoor_humidity < indoor_rh - 10) {
+        increase_ventilation_rate();
+    }
+
+    // Turn off if setpoint reached with hysteresis
+    if (rh_error < -5) {
+        dehumidifier_enable = false;
+    }
+}
+```
+
+**Condensation Prevention:**
+
+```cpp
+void prevent_condensation() {
+    float indoor_temp = read_indoor_temp();
+    float indoor_rh = read_humidity_sensor();
+
+    // Calculate dew point
+    float dew_point = calculate_dew_point(indoor_temp, indoor_rh);
+
+    // Monitor cold surfaces
+    for (auto sensor : surface_temp_sensors) {
+        float surface_temp = sensor.read();
+
+        // Alert if surface is approaching dew point
+        if (surface_temp < dew_point + 2.0) {
+            log_warning("Condensation risk on surface: " + sensor.name);
+
+            // Corrective actions
+            activate_dehumidifier();
+            // Or increase local heating
+            // Or increase air circulation
+        }
+    }
+}
+
+float calculate_dew_point(float temp_c, float rh_percent) {
+    // Magnus-Tetens approximation
+    float a = 17.27;
+    float b = 237.7;
+
+    float alpha = ((a * temp_c) / (b + temp_c)) + log(rh_percent / 100.0);
+    float dew_point = (b * alpha) / (a - alpha);
+
+    return dew_point;
+}
+```
+
+#### 4.5.2 Humidification Control
+
+```cpp
+void control_humidification() {
+    float indoor_rh = read_humidity_sensor();
+    float rh_setpoint = get_humidity_setpoint();  // Typically 40-45% in winter
+    float rh_error = rh_setpoint - indoor_rh;
+
+    // Only humidify if below setpoint
+    if (rh_error > 5) {
+        humidifier_enable = true;
+
+        // Modulating control for steam humidifiers
+        if (has_modulating_humidifier) {
+            float capacity = constrain(rh_error * 10.0, 30.0, 100.0);
+            set_humidifier_output(capacity);
+        }
+
+        // Ensure adequate ventilation is maintained
+        ensure_minimum_ventilation();
+    } else if (rh_error < -2) {
+        humidifier_enable = false;
+    }
+
+    // Safety limit: prevent over-humidification
+    if (indoor_rh > MAX_SAFE_HUMIDITY) {
+        humidifier_enable = false;
+        log_warning("Maximum humidity limit reached");
+    }
+}
+```
+
+### 4.6 Multi-Source Coordination
+
+#### 4.6.1 Source Priority Selection
+
+```cpp
+struct HeatSource {
+    String name;
+    float cop;  // Current efficiency
+    float cost_per_kwh;
+    float max_capacity_kw;
+    float current_output_kw;
+    bool available;
+    int priority_score;
+};
+
+void select_heat_sources(float heat_demand_kw) {
+    std::vector<HeatSource> sources = get_all_heat_sources();
+
+    // Calculate priority score for each source
+    for (auto& source : sources) {
+        if (!source.available) {
+            source.priority_score = -1;
+            continue;
+        }
+
+        // Score = f(efficiency, cost, capacity)
+        // Higher score = higher priority
+        source.priority_score =
+            source.cop * EFFICIENCY_WEIGHT +
+            (1.0 / source.cost_per_kwh) * COST_WEIGHT +
+            (source.max_capacity_kw / 50.0) * CAPACITY_WEIGHT;
+    }
+
+    // Sort sources by priority
+    std::sort(sources.begin(), sources.end(),
+              [](HeatSource& a, HeatSource& b) {
+                  return a.priority_score > b.priority_score;
+              });
+
+    // Allocate load to sources in priority order
+    float remaining_demand = heat_demand_kw;
+
+    for (auto& source : sources) {
+        if (remaining_demand <= 0) break;
+
+        float allocated_output = min(remaining_demand, source.max_capacity_kw);
+        source.current_output_kw = allocated_output;
+        remaining_demand -= allocated_output;
+
+        activate_heat_source(source.name, allocated_output);
+    }
+}
+
+// Typical weights:
+// EFFICIENCY_WEIGHT = 50
+// COST_WEIGHT = 30
+// CAPACITY_WEIGHT = 20
+```
+
+### 4.7 Predictive Control
+
+#### 4.7.1 Weather-Compensated Control
+
+```cpp
+void weather_compensated_control() {
+    // Get weather forecast
+    WeatherForecast forecast = get_weather_forecast(6);  // 6 hours ahead
+
+    // Adjust heating curve based on forecast
+    if (forecast.temp_dropping && forecast.temp_change < -5) {
+        // Pre-heat in anticipation of cold front
+        supply_setpoint_adjustment = +5.0;
+    } else if (forecast.temp_rising && forecast.temp_change > 5) {
+        // Reduce heating in anticipation of warm-up
+        supply_setpoint_adjustment = -3.0;
+    }
+
+    // Adjust thermal mass charging
+    if (forecast.sunny && has_solar_thermal) {
+        // Prioritize solar charging before sun sets
+        increase_storage_tank_charging();
+    }
+}
+```
+
+#### 4.7.2 Occupancy Prediction
+
+```cpp
+void occupancy_predictive_control() {
+    // Learn occupancy patterns
+    OccupancyPattern pattern = get_learned_occupancy_pattern();
+
+    // Pre-condition space before expected occupancy
+    int minutes_before_occupancy = 60;  // 1 hour lead time
+
+    if (pattern.next_occupied_time - current_time < minutes_before_occupancy) {
+        // Ramp up to comfort setpoint
+        transition_to_occupied_setpoint();
+    } else if (pattern.next_unoccupied_time - current_time < 30) {
+        // Begin setback
+        transition_to_unoccupied_setpoint();
+    }
+}
+```
+
+### 4.8 Safety Limits & Interlocks
+
+#### 4.8.1 Temperature Limits
+
+```cpp
+void enforce_temperature_limits() {
+    // High limit protection
+    if (supply_temp > MAX_SUPPLY_TEMP_LIMIT) {
+        emergency_shutdown("OVER_TEMPERATURE");
+        log_critical("Supply temperature exceeded limit: " + String(supply_temp));
+    }
+
+    // Low limit freeze protection
+    if (return_temp < FREEZE_PROTECTION_TEMP) {
+        activate_freeze_protection();
+        log_warning("Freeze protection activated");
+    }
+
+    // Rate of change limit (detect sensor failure)
+    float temp_rate_of_change = abs(current_temp - previous_temp) / loop_time;
+    if (temp_rate_of_change > MAX_TEMP_CHANGE_RATE) {
+        log_error("Abnormal temperature rate of change detected");
+        sensor_fault_detected = true;
+    }
+}
+```
+
+#### 4.8.2 Equipment Protection Interlocks
+
+```cpp
+bool check_compressor_start_conditions() {
+    // Flow interlock
+    if (!is_flow_detected()) {
+        log_error("Cannot start compressor: No flow detected");
+        return false;
+    }
+
+    // Temperature limits
+    if (supply_temp > MAX_COMPRESSOR_START_TEMP) {
+        log_error("Cannot start compressor: Supply temp too high");
+        return false;
+    }
+
+    // Minimum off-time
+    if (millis() - last_compressor_stop < MIN_OFF_TIME_MS) {
+        log_info("Compressor off-time not met");
+        return false;
+    }
+
+    // Outdoor temperature limits
+    if (outdoor_temp < MIN_OUTDOOR_TEMP_FOR_OPERATION) {
+        log_error("Outdoor temp too low for heat pump operation");
+        return false;
+    }
+
+    return true;  // All conditions met
+}
+```
+
+---
+
+## 5. Heat Storage Management
+
+### 5.1 Overview
+
+Heat storage systems are critical for maximizing the efficiency and flexibility of HVAC systems. The Keros controller implements sophisticated algorithms to optimize thermal storage for:
+- **Load Shifting**: Charge storage during off-peak hours or when renewable energy is available
+- **COP Optimization**: Extract heat from storage at temperatures that maximize heat pump efficiency
+- **Demand Smoothing**: Buffer rapid load changes to reduce equipment cycling
+- **Renewable Integration**: Store excess solar thermal or heat pump output for later use
+
+### 5.2 Storage Tank Types
+
+#### 5.2.1 Hot Water Storage (DHW)
+
+**Purpose:** Domestic hot water production and storage
+
+**Configuration:**
+- Single or dual tank (preheat + finish)
+- Volume: 100-500 liters typical (residential)
+- Temperature range: 45-65°C (anti-legionella cycles to 60-70°C)
+- Sensors: 3-5 temperature sensors (top, mid-top, mid, mid-bottom, bottom)
+
+**Control Strategy:**
+```cpp
+void control_dhw_storage() {
+    float temp_top = read_temp_sensor(DHW_TOP);
+    float temp_bottom = read_temp_sensor(DHW_BOTTOM);
+    float setpoint = 55.0;  // Target DHW temperature
+
+    // Charge tank from bottom
+    if (temp_top < setpoint - 5.0) {
+        // Activate heat source
+        enable_dhw_charging_pump();
+        activate_heat_source_for_dhw();
+    } else if (temp_top > setpoint + 2.0) {
+        // Tank fully charged
+        disable_dhw_charging();
+    }
+
+    // Anti-legionella cycle (weekly)
+    if (legionella_cycle_due()) {
+        heat_tank_to_temperature(65.0);
+        maintain_temperature_for_duration(65.0, 30);  // 30 minutes
+    }
+}
+```
+
+#### 5.2.2 Buffer Tank (Heating/Cooling)
+
+**Purpose:** Hydraulic separation, thermal mass, load buffering
+
+**Configuration:**
+- Volume: 300-2000 liters typical
+- Temperature range: 25-55°C (heating), 6-12°C (cooling)
+- Sensors: 4-6 temperature sensors for stratification monitoring
+- Multiple connections: Heat sources (top), loads (variable height), return (bottom)
+
+**Stratification Monitoring:**
+```cpp
+struct TankStratification {
+    float temps[6];  // Temperature at each level
+    float avg_temp;
+    float stratification_index;  // 0 = fully mixed, 1 = perfect stratification
+};
+
+TankStratification analyze_tank_stratification() {
+    TankStratification strat;
+
+    // Read all temperature sensors
+    for (int i = 0; i < 6; i++) {
+        strat.temps[i] = read_temp_sensor(BUFFER_TANK_SENSOR[i]);
+    }
+
+    // Calculate average
+    strat.avg_temp = 0;
+    for (int i = 0; i < 6; i++) {
+        strat.avg_temp += strat.temps[i];
+    }
+    strat.avg_temp /= 6;
+
+    // Calculate stratification index
+    float max_delta = strat.temps[0] - strat.temps[5];  // Top - bottom
+    float ideal_delta = 20.0;  // Ideal stratification gradient
+    strat.stratification_index = constrain(max_delta / ideal_delta, 0.0, 1.0);
+
+    return strat;
+}
+```
+
+#### 5.2.3 Phase Change Material (PCM) Storage
+
+**Purpose:** High energy density storage using latent heat
+
+**Characteristics:**
+- Phase change temperature: Selected based on application (e.g., 28°C for cooling, 58°C for heating)
+- Higher energy density than water (2-3x per unit volume)
+- Nearly isothermal charging/discharging
+
+**Control Considerations:**
+- Monitor temperature differential across PCM to detect phase change
+- Adjust flow rates to match phase change heat transfer rate
+- Account for hysteresis in phase change temperature
+
+### 5.3 Capacity Calculation
+
+#### 5.3.1 Available Energy Estimation
+
+**Sensible Heat Storage (Water):**
+
+```cpp
+float calculate_available_energy_kwh(TankType tank) {
+    float volume_liters = tank.volume;
+    float specific_heat = 4.186;  // kJ/(kg·K) for water
+    float density = 1.0;  // kg/L for water
+
+    // Read temperature distribution
+    TankStratification strat = analyze_tank_stratification();
+
+    // Method 1: Simple (using average temperature)
+    float temp_avg = strat.avg_temp;
+    float temp_min_useful = tank.min_discharge_temp;  // e.g., 30°C for heating
+
+    float energy_kwh_simple = volume_liters * density * specific_heat *
+                               (temp_avg - temp_min_useful) / 3600.0;
+
+    // Method 2: Detailed (layer-by-layer integration)
+    float energy_kwh_detailed = 0;
+    float layer_volume = volume_liters / 6;
+
+    for (int i = 0; i < 6; i++) {
+        if (strat.temps[i] > temp_min_useful) {
+            float layer_energy = layer_volume * density * specific_heat *
+                                  (strat.temps[i] - temp_min_useful) / 3600.0;
+            energy_kwh_detailed += layer_energy;
+        }
+    }
+
+    return energy_kwh_detailed;
+}
+```
+
+**State of Charge (SOC):**
+
+```cpp
+float calculate_soc_percent(TankType tank) {
+    float energy_available = calculate_available_energy_kwh(tank);
+    float energy_max = tank.volume * 1.0 * 4.186 *
+                        (tank.max_temp - tank.min_discharge_temp) / 3600.0;
+
+    float soc = (energy_available / energy_max) * 100.0;
+    return constrain(soc, 0.0, 100.0);
+}
+```
+
+### 5.4 Charging Strategies
+
+#### 5.4.1 Optimized Charging Schedule
+
+**Objective:** Charge storage when energy is cheapest or most available
+
+```cpp
+void schedule_storage_charging() {
+    // Get energy pricing for next 24 hours
+    EnergyPricing pricing = get_energy_pricing_forecast();
+
+    // Get solar forecast if solar thermal is available
+    SolarForecast solar = get_solar_forecast();
+
+    // Identify optimal charging windows
+    std::vector<TimeWindow> charging_windows;
+
+    for (int hour = 0; hour < 24; hour++) {
+        bool should_charge = false;
+
+        // Priority 1: Solar availability (free energy)
+        if (solar.irradiance[hour] > 400) {  // W/m²
+            should_charge = true;
+        }
+        // Priority 2: Off-peak pricing
+        else if (pricing.price[hour] < pricing.avg_price * 0.7) {
+            should_charge = true;
+        }
+        // Priority 3: Demand forecast
+        else if (demand_forecast[hour + 6] > storage_capacity * 0.8) {
+            should_charge = true;  // Pre-charge before high demand
+        }
+
+        if (should_charge) {
+            charging_windows.push_back({hour, hour + 1});
+        }
+    }
+
+    // Execute charging schedule
+    schedule_charging_events(charging_windows);
+}
+```
+
+#### 5.4.2 Stratification-Preserving Charging
+
+**Goal:** Maintain temperature layers for maximum usable energy
+
+```cpp
+void charge_tank_stratified(float heat_source_temp) {
+    TankStratification strat = analyze_tank_stratification();
+
+    // Determine injection height based on source temperature
+    int injection_level = 0;
+
+    for (int i = 0; i < 6; i++) {
+        if (heat_source_temp > strat.temps[i] + 2.0) {
+            injection_level = i;  // Inject above this level
+            break;
+        }
+    }
+
+    // Control valve to inject at appropriate height
+    set_injection_valve_position(injection_level);
+
+    // Adjust flow rate to preserve stratification
+    // Lower flow = better stratification, but slower charging
+    float flow_rate = calculate_optimal_flow_rate(
+        heat_source_temp,
+        strat.temps[injection_level],
+        tank_geometry
+    );
+
+    set_charging_pump_speed(flow_rate);
+}
+```
+
+### 5.5 Discharging Strategies
+
+#### 5.5.1 Variable Extraction Height
+
+**Objective:** Extract hottest water while preserving stratification
+
+```cpp
+void discharge_tank_optimized(float required_temp) {
+    TankStratification strat = analyze_tank_stratification();
+
+    // Find highest level meeting temperature requirement
+    int extraction_level = -1;
+
+    for (int i = 5; i >= 0; i--) {  // Bottom to top
+        if (strat.temps[i] >= required_temp) {
+            extraction_level = i;
+            break;
+        }
+    }
+
+    if (extraction_level == -1) {
+        // No level meets requirement
+        log_warning("Tank temperature insufficient");
+        // Activate heat source for direct heating
+        enable_direct_heating_mode();
+        return;
+    }
+
+    // Extract from identified level
+    set_extraction_valve_position(extraction_level);
+
+    // Monitor and adjust extraction height as tank discharges
+    monitor_extraction_temp();
+}
+```
+
+#### 5.5.2 Heat Pump Source Temperature Optimization
+
+**Use Case:** Extract from tank at optimal temperature for heat pump COP
+
+```cpp
+void optimize_hp_source_temp() {
+    TankStratification strat = analyze_tank_stratification();
+
+    // Heat pump COP improves with higher source temperature
+    // But we want to preserve high-temperature water for direct use
+
+    // Strategy: Extract from mid-levels for heat pump
+    float optimal_source_temp = 35.0;  // Target for good COP
+
+    // Find level closest to optimal
+    int best_level = 0;
+    float min_diff = 100.0;
+
+    for (int i = 1; i < 5; i++) {  // Avoid top and bottom
+        float diff = abs(strat.temps[i] - optimal_source_temp);
+        if (diff < min_diff) {
+            min_diff = diff;
+            best_level = i;
+        }
+    }
+
+    // Extract from best level for heat pump evaporator
+    set_hp_source_extraction_level(best_level);
+
+    // Return cooled water to bottom
+    // This maintains stratification and efficiency
+}
+```
+
+### 5.6 Multi-Tank Management
+
+#### 5.6.1 Tank Prioritization
+
+**Scenario:** Multiple tanks (DHW, buffer, solar preheat)
+
+```cpp
+void manage_multiple_tanks() {
+    // Priority order for charging
+    std::vector<Tank> tanks = {dhw_tank, buffer_tank, solar_preheat_tank};
+
+    // Assess state of charge for each tank
+    for (auto& tank : tanks) {
+        tank.soc = calculate_soc_percent(tank);
+        tank.priority = calculate_priority(tank);
+    }
+
+    // Sort by priority
+    std::sort(tanks.begin(), tanks.end(),
+              [](Tank& a, Tank& b) { return a.priority > b.priority; });
+
+    // Allocate heat source to highest priority tank
+    if (tanks[0].soc < 80.0) {  // Tank needs charging
+        charge_tank(tanks[0]);
+    }
+}
+
+int calculate_priority(Tank& tank) {
+    int priority = 0;
+
+    // DHW has highest base priority
+    if (tank.type == DHW) {
+        priority += 100;
+    }
+
+    // Low SOC increases priority
+    priority += (100 - tank.soc);
+
+    // Time-of-use pricing consideration
+    if (currently_off_peak()) {
+        priority += 50;
+    }
+
+    // Predicted demand
+    if (high_demand_forecast_next_hours(tank.type, 6)) {
+        priority += 30;
+    }
+
+    return priority;
+}
+```
+
+### 5.7 Solar Thermal Integration
+
+#### 5.7.1 Differential Temperature Control
+
+**Classic Solar Thermal Control:**
+
+```cpp
+void control_solar_thermal_pump() {
+    float temp_collector = read_temp_sensor(SOLAR_COLLECTOR);
+    float temp_tank_bottom = read_temp_sensor(SOLAR_TANK_BOTTOM);
+
+    float delta_t = temp_collector - temp_tank_bottom;
+
+    // Hysteresis control
+    static bool pump_running = false;
+
+    if (!pump_running) {
+        if (delta_t > DELTA_T_ON_THRESHOLD) {  // e.g., 8°C
+            pump_running = true;
+            enable_solar_pump();
+        }
+    } else {
+        if (delta_t < DELTA_T_OFF_THRESHOLD) {  // e.g., 3°C
+            pump_running = false;
+            disable_solar_pump();
+        }
+    }
+
+    // Variable speed for efficiency
+    if (pump_running) {
+        float pump_speed = map_float(delta_t, 5.0, 30.0, 30.0, 100.0);
+        pump_speed = constrain(pump_speed, 30.0, 100.0);
+        set_solar_pump_speed(pump_speed);
+    }
+}
+```
+
+#### 5.7.2 Overheating Protection
+
+```cpp
+void protect_solar_system_from_overheating() {
+    float temp_collector = read_temp_sensor(SOLAR_COLLECTOR);
+    float temp_tank_top = read_temp_sensor(SOLAR_TANK_TOP);
+
+    // Collector too hot (stagnation risk)
+    if (temp_collector > 95.0) {
+        // Emergency heat dump
+        if (temp_tank_top < 70.0) {
+            // Force circulation to dump heat into tank
+            set_solar_pump_speed(100.0);
+        } else {
+            // Tank also too hot - activate heat dump radiator
+            activate_heat_dump_radiator();
+        }
+    }
+
+    // Tank overheating prevention
+    if (temp_tank_top > 75.0) {
+        // Stop solar charging
+        disable_solar_pump();
+
+        // Cool tank by forced circulation to loads
+        activate_cooling_circulation();
+    }
+}
+```
+
+### 5.8 Predictive Storage Management
+
+#### 5.8.1 Demand Forecasting
+
+```cpp
+struct DemandForecast {
+    float hourly_demand_kwh[24];
+    float confidence;
+};
+
+DemandForecast forecast_demand() {
+    DemandForecast forecast;
+
+    // Method 1: Historical pattern matching
+    int day_of_week = get_day_of_week();
+    HistoricalData hist = get_historical_demand(day_of_week, 4);  // Last 4 weeks
+
+    for (int hour = 0; hour < 24; hour++) {
+        forecast.hourly_demand_kwh[hour] = hist.avg_demand[hour];
+    }
+
+    // Method 2: Weather adjustment
+    WeatherForecast weather = get_weather_forecast();
+    for (int hour = 0; hour < 24; hour++) {
+        float outdoor_temp = weather.temperature[hour];
+
+        // Heating degree days adjustment
+        if (outdoor_temp < 18.0) {
+            float hdd = 18.0 - outdoor_temp;
+            forecast.hourly_demand_kwh[hour] *= (1.0 + hdd * 0.05);
+        }
+    }
+
+    // Method 3: Occupancy prediction
+    OccupancyPattern occupancy = get_learned_occupancy();
+    for (int hour = 0; hour < 24; hour++) {
+        if (occupancy.occupied[hour]) {
+            forecast.hourly_demand_kwh[hour] *= 1.2;  // 20% increase when occupied
+        }
+    }
+
+    forecast.confidence = calculate_forecast_confidence(hist.variance);
+
+    return forecast;
+}
+```
+
+#### 5.8.2 Optimal SOC Target
+
+```cpp
+float calculate_optimal_soc_target(int hours_ahead) {
+    DemandForecast demand = forecast_demand();
+
+    // Calculate cumulative demand for forecast period
+    float cumulative_demand = 0;
+    for (int i = 0; i < hours_ahead; i++) {
+        cumulative_demand += demand.hourly_demand_kwh[i];
+    }
+
+    // Calculate required storage capacity
+    float tank_capacity_kwh = calculate_tank_capacity_kwh();
+    float required_soc = (cumulative_demand / tank_capacity_kwh) * 100.0;
+
+    // Add safety margin
+    required_soc *= 1.2;  // 20% safety margin
+
+    // Constrain to realistic values
+    required_soc = constrain(required_soc, 30.0, 95.0);
+
+    return required_soc;
+}
+```
+
+### 5.9 Efficiency Metrics & Monitoring
+
+#### 5.9.1 Storage Efficiency Tracking
+
+```cpp
+struct StorageEfficiency {
+    float energy_in_kwh;
+    float energy_out_kwh;
+    float losses_kwh;
+    float efficiency_percent;
+    float cycle_count;
+};
+
+void track_storage_efficiency() {
+    static StorageEfficiency metrics_daily;
+    static unsigned long last_reset = 0;
+
+    // Measure energy into storage
+    if (charging_active) {
+        float power_in = measure_charging_power_kw();
+        metrics_daily.energy_in_kwh += power_in * (loop_time / 3600.0);
+    }
+
+    // Measure energy out of storage
+    if (discharging_active) {
+        float power_out = measure_discharging_power_kw();
+        metrics_daily.energy_out_kwh += power_out * (loop_time / 3600.0);
+    }
+
+    // Calculate losses (standing + cycling)
+    TankStratification strat = analyze_tank_stratification();
+    float tank_avg_temp = strat.avg_temp;
+    float ambient_temp = read_ambient_temp();
+    float temp_diff = tank_avg_temp - ambient_temp;
+
+    // Standing loss (W) = U-value × Area × ΔT
+    float standing_loss_w = TANK_U_VALUE * TANK_SURFACE_AREA * temp_diff;
+    metrics_daily.losses_kwh += standing_loss_w / 1000.0 * (loop_time / 3600.0);
+
+    // Daily reset and reporting
+    if (millis() - last_reset > 86400000) {  // 24 hours
+        metrics_daily.efficiency_percent =
+            (metrics_daily.energy_out_kwh /
+             (metrics_daily.energy_in_kwh + 0.001)) * 100.0;
+
+        log_storage_efficiency(metrics_daily);
+
+        // Reset counters
+        metrics_daily = {0};
+        last_reset = millis();
+    }
+}
+```
+
+#### 5.9.2 Stratification Quality Monitoring
+
+```cpp
+void monitor_stratification_quality() {
+    TankStratification strat = analyze_tank_stratification();
+
+    // Log stratification index over time
+    log_stratification_index(strat.stratification_index);
+
+    // Alert if stratification is degrading
+    if (strat.stratification_index < 0.3) {
+        log_warning("Poor tank stratification detected");
+        log_info("Consider: reducing flow rates, checking baffles, reviewing injection points");
+    }
+
+    // Identify mixing events
+    static float prev_index = 0;
+    if (strat.stratification_index < prev_index - 0.2) {
+        log_event("Stratification disruption detected");
+        // Investigate: rapid charging/discharging, pump issues, valve problems
+    }
+
+    prev_index = strat.stratification_index;
+}
+```
+
+### 5.10 Advanced Control Strategies
+
+#### 5.10.1 Model Predictive Control (MPC) for Storage
+
+**Concept:** Optimize storage operation over a prediction horizon
+
+```cpp
+void mpc_storage_optimization() {
+    // Prediction horizon: 24 hours
+    const int HORIZON = 24;
+
+    // Get forecasts
+    DemandForecast demand = forecast_demand();
+    EnergyPricing pricing = get_energy_pricing_forecast();
+    WeatherForecast weather = get_weather_forecast();
+
+    // Define optimization problem
+    // Minimize cost while meeting demand and respecting constraints
+
+    float total_cost = 0;
+    float soc[HORIZON];
+    soc[0] = current_soc;
+
+    for (int hour = 0; hour < HORIZON; hour++) {
+        // Decision variables: charge/discharge rate
+        float charge_rate = 0;  // kW (to be optimized)
+
+        // Constraints
+        // 1. SOC limits
+        soc[hour + 1] = soc[hour] + charge_rate - demand.hourly_demand_kwh[hour];
+        soc[hour + 1] = constrain(soc[hour + 1], 20.0, 95.0);
+
+        // 2. Charging/discharging rate limits
+        charge_rate = constrain(charge_rate, -MAX_DISCHARGE_RATE, MAX_CHARGE_RATE);
+
+        // 3. Heat source capacity
+        // charge_rate limited by available heat source capacity
+
+        // Objective: minimize cost
+        if (charge_rate > 0) {
+            // Charging
+            total_cost += charge_rate * pricing.price[hour];
+        }
+
+        // (Simplified - full implementation would use optimization library)
+    }
+
+    // Apply optimal control action for current hour
+    execute_optimal_charging_rate(charge_rate_optimal[0]);
+}
+```
+
+---
+
+## 6. User Interface Requirements
+
+### 6.1 Overview
+
+The Keros system provides multiple user interfaces designed for different user types and use cases:
+- **Web Dashboard**: Primary interface for configuration, monitoring, and control
+- **Mobile App**: Remote access and notifications
+- **Local Display**: Basic status and emergency access
+- **REST API**: Programmatic access for integrations
+
+### 6.2 Web Dashboard
+
+#### 6.2.1 Dashboard Layout
+
+**Home Screen:**
+```
+┌──────────────────────────────────────────────────────────────┐
+│  Keros HVAC Controller             [User] [Settings] [Help] │
+├──────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐            │
+│  │  Indoor    │  │  Outdoor   │  │  System    │            │
+│  │   21.5°C   │  │   5.2°C    │  │  Running   │            │
+│  │   50% RH   │  │   85% RH   │  │  COP 3.2   │            │
+│  └────────────┘  └────────────┘  └────────────┘            │
+│                                                               │
+│  System Status: ██████████░░░░  Power: 2.3 kW               │
+│                                                               │
+│  ┌─────────────── Zone Control ──────────────────┐          │
+│  │  Living Room:  21°C  [+][-]  Mode: Auto       │          │
+│  │  Bedroom:      19°C  [+][-]  Mode: Eco        │          │
+│  │  Kitchen:      20°C  [+][-]  Mode: Comfort    │          │
+│  └────────────────────────────────────────────────┘          │
+│                                                               │
+│  ┌─────────────── Quick Actions ──────────────────┐         │
+│  │  [Boost Heat]  [Away Mode]  [Schedule]        │         │
+│  └────────────────────────────────────────────────┘         │
+│                                                               │
+│  Recent Alerts: None                                         │
+│  Energy Today: 12.5 kWh  Cost: $1.50                        │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Key Features:**
+- Real-time data updates (every 5 seconds)
+- Responsive design (mobile, tablet, desktop)
+- Dark/light theme support
+- Accessible (WCAG 2.1 AA compliant)
+
+#### 6.2.2 Configuration Interface
+
+**Setup Wizard (First-Time Configuration):**
+1. **Hardware Detection**: Auto-discover sensors and actuators
+2. **System Type**: Select HVAC configuration (heat pump, boiler, etc.)
+3. **Zone Setup**: Define zones and assign sensors
+4. **Heat Sources**: Configure available heat sources
+5. **Schedules**: Set up basic heating/cooling schedules
+6. **Calibration**: Sensor calibration and validation
+
+**Advanced Configuration:**
+- PID tuning parameters
+- Safety limits and interlocks
+- Module enable/disable
+- I/O mapping
+- Network settings
+
+#### 6.2.3 Monitoring & Diagnostics
+
+**Real-Time Monitoring:**
+- Live sensor readings with graphs
+- Equipment status (on/off, speed, mode)
+- Energy consumption (instantaneous and cumulative)
+- System performance metrics (COP, efficiency)
+
+**Historical Data:**
+- Temperature trends (hour/day/week/month/year)
+- Energy consumption reports
+- Equipment runtime logs
+- Fault history
+
+**System Diagnostics:**
+- Module health status
+- Communication diagnostics
+- Sensor validation
+- Performance analysis
+
+### 6.3 Mobile Application
+
+#### 6.3.1 Features
+
+**Core Functions:**
+- Temperature setpoint adjustment
+- Mode selection (auto/comfort/eco/away)
+- Schedule management
+- Real-time status monitoring
+- Push notifications for alerts
+
+**Notifications:**
+- Critical alerts (system faults, safety events)
+- Maintenance reminders
+- Energy reports
+- Temperature threshold alerts
+
+#### 6.3.2 Platform Support
+
+- **iOS**: Native app (Swift/SwiftUI) or progressive web app
+- **Android**: Native app (Kotlin) or progressive web app
+- **Cross-platform**: React Native or Flutter option
+
+### 6.4 Local Display (Optional)
+
+**Hardware:**
+- OLED (128x64) for basic status
+- TFT touchscreen (320x240) for interactive control
+
+**Display Content:**
+- Current temperatures (indoor/outdoor)
+- System status (heating/cooling/idle)
+- Active alarms
+- Touch controls for setpoint adjustment
+
+### 6.5 REST API
+
+#### 6.5.1 API Endpoints
+
+**Authentication:**
+```
+POST /api/auth/login
+POST /api/auth/refresh
+POST /api/auth/logout
+```
+
+**System Status:**
+```
+GET /api/status
+GET /api/sensors
+GET /api/zones
+GET /api/equipment
+```
+
+**Control:**
+```
+POST /api/zones/{id}/setpoint
+POST /api/system/mode
+POST /api/equipment/{id}/command
+```
+
+**Configuration:**
+```
+GET /api/config
+PUT /api/config
+GET /api/schedules
+POST /api/schedules
+```
+
+**Data & Analytics:**
+```
+GET /api/data/historical?start={timestamp}&end={timestamp}
+GET /api/data/energy
+GET /api/data/performance
+```
+
+#### 6.5.2 Authentication & Security
+
+- JWT-based authentication
+- Role-based access control (admin, user, read-only)
+- API rate limiting
+- HTTPS/TLS enforcement
+- API key management
+
+### 6.6 User Experience (UX) Principles
+
+**Simplicity:**
+- Default to "auto" mode for hands-off operation
+- Progressive disclosure of advanced features
+- Contextual help and tooltips
+
+**Feedback:**
+- Immediate visual feedback for user actions
+- Clear indication of system state changes
+- Progress indicators for long operations
+
+**Safety:**
+- Confirmation dialogs for critical actions
+- Undo capability where applicable
+- Warnings for out-of-range values
+
+**Performance:**
+- Fast page loads (<2 seconds)
+- Smooth animations (60 fps)
+- Offline capability for cached data
+
+---
+
+## 7. Modular Design & Extensibility
+
+### 7.1 Module Development Framework
+
+#### 7.1.1 Creating a New Module
+
+**Step 1: Define Module Interface**
+
+Create `my_module.interface`:
+```json
+{
+  "module_name": "my_custom_module",
+  "version": "1.0.0",
+  "api_version": "1.0.0",
+  "description": "Custom functionality for specific application",
+  "author": "Developer Name",
+  "dependencies": {
+    "modules": [],
+    "hardware": ["GPIO"],
+    "minimum_firmware": "1.0.0"
+  },
+  "capabilities": [
+    "custom_control",
+    "data_logging"
+  ],
+  "resource_requirements": {
+    "ram_bytes": 4096,
+    "flash_bytes": 16384,
+    "loop_frequency_hz": 1
+  },
+  "configuration_schema": {
+    "type": "object",
+    "properties": {
+      "enabled": {"type": "boolean", "default": true},
+      "update_interval": {"type": "integer", "default": 60}
+    },
+    "required": ["enabled"]
+  }
+}
+```
+
+**Step 2: Implement Module Class**
+
+Create `my_module.h`:
+```cpp
+#ifndef MY_MODULE_H
+#define MY_MODULE_H
+
+#include "module_interface.h"
+
+class MyCustomModule : public ModuleInterface {
+private:
+    bool enabled;
+    unsigned long last_update;
+
+public:
+    MyCustomModule();
+
+    // Required interface methods
+    ModuleMetadata get_metadata() override;
+    HealthStatus health_check() override;
+    bool initialize(Configuration config) override;
+    void shutdown() override;
+    String get_api_version() override;
+    void loop() override;
+
+    // Custom methods
+    void process_data();
+};
+
+#endif
+```
+
+Create `my_module.cpp`:
+```cpp
+#include "my_module.h"
+
+MyCustomModule::MyCustomModule() {
+    enabled = false;
+    last_update = 0;
+}
+
+ModuleMetadata MyCustomModule::get_metadata() {
+    ModuleMetadata meta;
+    meta.name = "my_custom_module";
+    meta.version = "1.0.0";
+    meta.description = "Custom functionality";
+    return meta;
+}
+
+HealthStatus MyCustomModule::health_check() {
+    if (!enabled) return HEALTH_DISABLED;
+
+    // Perform health checks
+    if (/* some error condition */) {
+        return HEALTH_CRITICAL;
+    }
+
+    return HEALTH_HEALTHY;
+}
+
+bool MyCustomModule::initialize(Configuration config) {
+    enabled = config.get_bool("enabled", true);
+
+    // Initialize resources
+
+    log_info("MyCustomModule initialized");
+    return true;
+}
+
+void MyCustomModule::shutdown() {
+    // Clean up resources
+    enabled = false;
+    log_info("MyCustomModule shutdown");
+}
+
+String MyCustomModule::get_api_version() {
+    return "1.0.0";
+}
+
+void MyCustomModule::loop() {
+    if (!enabled) return;
+
+    unsigned long now = millis();
+    if (now - last_update > 1000) {  // Update every second
+        process_data();
+        last_update = now;
+    }
+}
+
+void MyCustomModule::process_data() {
+    // Custom module logic here
+}
+```
+
+**Step 3: Register Module**
+
+Add to `modules/modules.cpp`:
+```cpp
+#include "my_module.h"
+
+void register_modules() {
+    // Existing modules...
+
+    skeleton.register_module(new MyCustomModule());
+}
+```
+
+#### 7.1.2 Module Communication
+
+**Publishing Events:**
+```cpp
+void MyCustomModule::loop() {
+    // Create and publish event
+    Event event;
+    event.type = "CUSTOM_DATA_UPDATE";
+    event.source = "my_custom_module";
+    event.priority = PRIORITY_NORMAL;
+    event.data["value"] = read_sensor();
+
+    skeleton.publish_event(event);
+}
+```
+
+**Subscribing to Events:**
+```cpp
+void MyCustomModule::initialize(Configuration config) {
+    // Subscribe to temperature readings
+    skeleton.subscribe("TEMPERATURE_READING",
+        [this](Event& event) {
+            float temp = event.data["value"];
+            process_temperature(temp);
+        });
+}
+```
+
+### 7.2 Plugin System
+
+#### 7.2.1 Dynamic Module Loading
+
+**Module Discovery:**
+- Scan `/modules/` directory at startup
+- Load `.interface` files
+- Validate compatibility
+- Resolve dependencies
+- Initialize in correct order
+
+**Hot Reload (Development Mode):**
+```cpp
+bool reload_module(String module_name) {
+    // 1. Pause module
+    Module* mod = skeleton.get_module(module_name);
+    if (!mod) return false;
+
+    mod->set_state(MODULE_PAUSED);
+
+    // 2. Shutdown
+    mod->shutdown();
+
+    // 3. Reload code (from updated binary)
+    // (Platform-specific implementation)
+
+    // 4. Re-initialize
+    if (!mod->initialize(mod->get_config())) {
+        log_error("Module reload failed");
+        return false;
+    }
+
+    // 5. Resume
+    mod->set_state(MODULE_RUNNING);
+
+    return true;
+}
+```
+
+### 7.3 Integration Patterns
+
+#### 7.3.1 Third-Party Smart Home Integration
+
+**Home Assistant Integration:**
+- MQTT Auto-discovery
+- Entity definitions (climate, sensor, switch)
+- State reporting
+- Command handling
+
+**Example MQTT Auto-Discovery:**
+```json
+{
+  "name": "Keros Living Room",
+  "unique_id": "keros_zone_living_room",
+  "device_class": "temperature",
+  "state_topic": "homeassistant/climate/keros/living_room/state",
+  "command_topic": "homeassistant/climate/keros/living_room/set",
+  "temperature_state_topic": "homeassistant/sensor/keros/living_room_temp/state",
+  "temperature_command_topic": "homeassistant/climate/keros/living_room/set_temp",
+  "modes": ["off", "heat", "cool", "auto"],
+  "min_temp": 15,
+  "max_temp": 30
+}
+```
+
+#### 7.3.2 Custom Scripting (Lua/Python)
+
+**Allow users to define custom control logic:**
+
+```python
+# Example: Custom away mode script
+def on_away_mode_activate():
+    set_all_zones_temperature(16.0)  # Energy saving
+    enable_frost_protection()
+    disable_dhw_heating()  # No hot water needed
+
+def on_away_mode_deactivate():
+    restore_previous_settings()
+    enable_dhw_heating()
+```
+
+### 7.4 Module Marketplace (Future)
+
+**Vision:** Community-developed modules
+
+- Module repository with version control
+- Automated testing and validation
+- User ratings and reviews
+- One-click installation
+- Secure sandboxing
+
+---
+
+## 8. Communication Protocols
+
+### 8.1 Wi-Fi & Network
+
+#### 8.1.1 Network Configuration
+
+**Connection Modes:**
+- **Station Mode (STA)**: Connect to existing Wi-Fi network
+- **Access Point Mode (AP)**: Create temporary hotspot for setup
+- **AP+STA**: Simultaneous modes for advanced users
+
+**Initial Setup (Captive Portal):**
+1. Device boots in AP mode ("Keros-Setup-XXXX")
+2. User connects to AP
+3. Captive portal presents Wi-Fi selection
+4. User enters credentials
+5. Device connects and switches to STA mode
+
+**Network Security:**
+- WPA2/WPA3 support
+- Static IP or DHCP
+- mDNS for local discovery (`keros.local`)
+- Fallback to AP mode if connection fails
+
+#### 8.1.2 Protocol Support
+
+**HTTP/HTTPS:**
+- Web server for dashboard (port 80/443)
+- REST API endpoints
+- WebSocket for real-time updates
+- TLS/SSL with self-signed or custom certificates
+
+**MQTT:**
+- Publish system state
+- Subscribe to commands
+- QoS levels (0, 1, 2 supported)
+- Retained messages for persistent state
+- Last Will and Testament (LWT) for availability
+
+**Modbus TCP:**
+- Optional for BMS integration
+- Standard Modbus register mapping
+- Configurable slave address
+
+### 8.2 Serial Communication
+
+#### 8.2.1 Modbus RTU
+
+**Configuration:**
+- Baud rate: 9600-115200 (configurable)
+- Parity: None, Even, Odd
+- Stop bits: 1 or 2
+- Slave address: 1-247
+
+**Register Map (Example):**
+| Address | Type | Description | Unit |
+|---------|------|-------------|------|
+| 0-9 | Input | Zone temperatures | 0.1°C |
+| 10-19 | Input | Humidity levels | 0.1% RH |
+| 20 | Input | Outdoor temperature | 0.1°C |
+| 100 | Holding | Zone 1 setpoint | 0.1°C |
+| 101 | Holding | Zone 2 setpoint | 0.1°C |
+| 200 | Coil | System enable | Boolean |
+| 201 | Coil | Heating mode | Boolean |
+
+#### 8.2.2 Debug/Programming Interface
+
+**UART0 (USB):**
+- Console output for debugging
+- Firmware upload
+- Diagnostic commands
+- Log streaming
+
+### 8.3 I2C & SPI Sensors
+
+**I2C Bus Management:**
+- Bus scanning for device discovery
+- Address conflict detection
+- Clock stretching support
+- Error recovery (bus reset)
+
+**Example: Multi-sensor polling:**
+```cpp
+void poll_i2c_sensors() {
+    // Iterate through configured sensors
+    for (auto& sensor : i2c_sensors) {
+        if (sensor.is_available()) {
+            sensor_data data = sensor.read();
+            publish_sensor_data(sensor.id, data);
+        } else {
+            log_warning("Sensor unavailable: " + sensor.name);
+            attempt_recovery(sensor);
+        }
+    }
+}
+```
+
+### 8.4 1-Wire Protocol
+
+**DS18B20 Temperature Sensors:**
+- Multiple sensors on single GPIO
+- Parasitic power mode support
+- 9-12 bit resolution (user selectable)
+- Asynchronous conversion for efficiency
+
+**Topology Considerations:**
+- Star topology preferred for reliability
+- Bus length: up to 100m with proper wiring
+- Pull-up resistor: 4.7kΩ typical
+- Avoid long stub lengths
+
+### 8.5 BLE (Bluetooth Low Energy)
+
+#### 8.5.1 Use Cases
+
+**Commissioning:**
+- Mobile app pairing during installation
+- Secure parameter transfer
+- Faster than Wi-Fi setup for some users
+
+**Proximity Detection:**
+- Detect when user is home (beacon mode)
+- Automatic mode switching
+- Presence-based control
+
+**Sensor Integration:**
+- BLE thermometers (e.g., Xiaomi Mi Temperature)
+- Wireless room sensors
+- Energy monitoring devices
+
+#### 8.5.2 BLE Services & Characteristics
+
+**Custom GATT Service:**
+```
+Service UUID: 0000180a-0000-1000-8000-00805f9b34fb
+
+Characteristics:
+- Temperature Setpoint (R/W): Set zone temperature
+- Current Temperature (R/Notify): Read current temp
+- System Mode (R/W): Heat/Cool/Auto mode
+- System Status (R/Notify): Running state
+```
+
+### 8.6 Cloud Connectivity
+
+#### 8.6.1 Cloud Services
+
+**Remote Access:**
+- Secure tunnel for remote dashboard access
+- Encrypted communication (TLS 1.2+)
+- NAT traversal
+- Optional: VPN integration
+
+**Data Analytics:**
+- Historical data upload
+- Performance benchmarking
+- Predictive maintenance
+- Firmware update distribution
+
+**Alexa/Google Home Integration:**
+- Cloud-to-cloud integration
+- Voice command handling
+- Status queries
+
+#### 8.6.2 Data Privacy
+
+**User Control:**
+- Opt-in for cloud features
+- Local-only operation mode
+- Data retention policies
+- GDPR compliance
+
+---
+
+## 9. Safety & Monitoring
+
+### 9.1 Safety Systems
+
+#### 9.1.1 Multi-Layer Safety Architecture
+
+**Hardware Safety:**
+- Independent temperature limit switches
+- Pressure relief valves
+- Flow switches for compressor protection
+- Emergency stop button (optional)
+
+**Software Safety:**
+- Watchdog timer (ESP32 hardware watchdog)
+- Safety task at highest priority
+- Sanity checks on all sensor readings
+- Fail-safe defaults
+
+**Redundant Sensors (Critical Points):**
+- Dual temperature sensors on critical measurements
+- Cross-validation between sensors
+- Fault detection via sensor disagreement
+
+#### 9.1.2 Safety Checks
+
+**Every Control Cycle (1 second):**
+```cpp
+void safety_checks() {
+    // Temperature limits
+    check_temperature_limits();
+
+    // Pressure limits
+    check_pressure_limits();
+
+    // Flow interlocks
+    check_flow_interlocks();
+
+    // Sensor health
+    check_sensor_health();
+
+    // Watchdog
+    feed_watchdog();
+}
+```
+
+**Fault Response Matrix:**
+| Fault Type | Response | Recovery |
+|------------|----------|----------|
+| Over-temperature | Emergency shutdown | Manual |
+| Sensor failure | Use redundant sensor, safe mode | Automatic after repair |
+| Communication loss | Continue with last valid data (60s limit) | Automatic |
+| Power brownout | Graceful shutdown, save state | Automatic on power restore |
+| Watchdog timeout | System reset | Automatic |
+
+#### 9.1.3 Emergency Shutdown Procedure
+
+```cpp
+void emergency_shutdown(String reason) {
+    // 1. Disable all outputs immediately
+    disable_all_outputs();
+
+    // 2. Log fault with timestamp
+    log_critical("EMERGENCY SHUTDOWN: " + reason);
+    log_system_state();  // Capture state for diagnostics
+
+    // 3. Activate alarms
+    activate_local_alarm();
+    send_emergency_notification();
+
+    // 4. Enter safe mode
+    system_state = STATE_EMERGENCY_SHUTDOWN;
+
+    // 5. Require manual recovery
+    require_manual_reset = true;
+}
+```
+
+### 9.2 Monitoring & Diagnostics
+
+#### 9.2.1 System Health Monitoring
+
+**Module Health Checks:**
+- CPU usage per module
+- Memory usage per module
+- Execution time tracking
+- Error rate monitoring
+
+**Performance Metrics:**
+```cpp
+struct SystemMetrics {
+    float cpu_usage_percent;
+    float ram_usage_percent;
+    int loop_time_ms;
+    int loop_overruns;
+    int event_queue_depth;
+    int wifi_signal_strength;
+};
+```
+
+#### 9.2.2 Predictive Maintenance
+
+**Equipment Runtime Tracking:**
+- Compressor run hours
+- Pump run hours
+- Valve cycle counts
+- Filter usage (air and water)
+
+**Maintenance Alerts:**
+- Service reminder at configured intervals
+- Degraded performance detection
+- Unusual behavior patterns
+
+**Example: Pump Performance Degradation Detection**
+```cpp
+void monitor_pump_performance() {
+    float current_flow = read_flow_meter();
+    float pump_speed = get_pump_speed();
+
+    // Calculate flow per unit speed
+    float flow_efficiency = current_flow / (pump_speed + 0.1);
+
+    // Compare to historical baseline
+    float baseline_efficiency = get_historical_avg_efficiency();
+
+    if (flow_efficiency < baseline_efficiency * 0.8) {
+        log_warning("Pump efficiency degraded - check for blockage or wear");
+        schedule_maintenance("circulation_pump");
+    }
+}
+```
+
+#### 9.2.3 Data Logging
+
+**Log Levels:**
+- **CRITICAL**: System failures, safety events
+- **ERROR**: Operational errors, recoverable faults
+- **WARNING**: Abnormal conditions, performance issues
+- **INFO**: State changes, important events
+- **DEBUG**: Detailed diagnostic information
+
+**Log Storage:**
+- RAM ring buffer (last 100 entries)
+- SD card (persistent, rotated daily)
+- Cloud upload (optional, aggregated)
+
+**Log Format:**
+```
+[2025-11-18 14:32:15.234] [INFO] [heat_pump_module] Compressor started, target COP: 3.5
+[2025-11-18 14:32:16.123] [DEBUG] [pid_controller] Kp=5.0, Ki=0.1, Kd=0.5, error=-2.3
+```
+
+### 9.3 Fault Detection & Recovery
+
+#### 9.3.1 Sensor Fault Detection
+
+**Methods:**
+- Range checking (values within physical limits)
+- Rate-of-change limits
+- Redundant sensor comparison
+- Stuck sensor detection (no change over time)
+
+**Recovery Actions:**
+- Switch to redundant sensor
+- Use estimated value from model
+- Enter safe mode with reduced functionality
+- Alert user for service
+
+#### 9.3.2 Communication Fault Handling
+
+**Wi-Fi Disconnection:**
+```cpp
+void handle_wifi_disconnection() {
+    // Continue local control
+    log_warning("Wi-Fi disconnected, continuing local operation");
+
+    // Attempt reconnection
+    wifi_reconnect_attempts = 0;
+    while (wifi_reconnect_attempts < MAX_RECONNECTS) {
+        if (wifi.reconnect()) {
+            log_info("Wi-Fi reconnected");
+            return;
+        }
+        wifi_reconnect_attempts++;
+        delay(5000);  // Wait 5 seconds between attempts
+    }
+
+    // If all attempts fail, continue offline
+    log_error("Wi-Fi reconnection failed, running offline");
+}
+```
+
+### 9.4 Cybersecurity
+
+#### 9.4.1 Security Measures
+
+**Authentication:**
+- Strong password requirements
+- Account lockout after failed attempts
+- Session timeout
+- Multi-factor authentication (optional)
+
+**Network Security:**
+- HTTPS/TLS for all web traffic
+- Encrypted MQTT (if used)
+- Firewall rules (if using Ethernet)
+- Regular security updates
+
+**Code Security:**
+- Input validation on all API endpoints
+- SQL injection prevention (if database used)
+- XSS protection in web interface
+- Signed firmware updates
+
+#### 9.4.2 Firmware Updates
+
+**Over-The-Air (OTA) Updates:**
+```cpp
+bool perform_ota_update(String firmware_url) {
+    // 1. Verify user authorization
+    if (!user_authorized_for_update()) {
+        return false;
+    }
+
+    // 2. Download and verify signature
+    if (!download_and_verify_firmware(firmware_url)) {
+        log_error("Firmware verification failed");
+        return false;
+    }
+
+    // 3. Enter safe mode (minimal control)
+    enter_safe_mode();
+
+    // 4. Perform update
+    if (!flash_new_firmware()) {
+        log_critical("Firmware update failed");
+        rollback_to_previous();
+        return false;
+    }
+
+    // 5. Reboot
+    ESP.restart();
+    return true;
+}
+```
+
+**Update Safety:**
+- Rollback capability
+- Backup of previous firmware
+- Staged rollout (beta testers first)
+- Version compatibility checks
+
+---
+
+## 10. Installation & Deployment
+
+### 10.1 Installation Process
+
+#### 10.1.1 Pre-Installation Planning
+
+**Site Survey:**
+- Identify heat sources (heat pump, boiler, solar, etc.)
+- Count heating/cooling zones
+- Locate sensor installation points
+- Plan controller mounting location
+- Assess power supply requirements
+- Check network connectivity
+
+**Bill of Materials:**
+- Controller board (appropriate configuration)
+- Sensors (temperature, humidity, pressure, flow)
+- Actuators and relays
+- Wiring and connectors
+- Mounting hardware
+- Power supply
+
+#### 10.1.2 Physical Installation
+
+**Controller Mounting:**
+- Location: Near existing HVAC controls, mechanical room
+- Mounting: DIN rail, wall mount, or panel mount
+- Clearance: Adequate ventilation, access for service
+- Protection: IP20 minimum, IP54 for harsh environments
+
+**Wiring Installation:**
+1. **Power Wiring:**
+   - Disconnect main power
+   - Install dedicated 24V power supply
+   - Connect to controller power input
+   - Verify polarity
+
+2. **Sensor Wiring:**
+   - Run shielded cables for analog sensors
+   - Use CAT5/6 for 1-Wire sensor networks
+   - Label all wires clearly
+   - Test continuity before connection
+
+3. **Actuator Wiring:**
+   - Connect relays to HVAC equipment
+   - Verify voltage and current ratings
+   - Install contactors for high-power loads
+   - Add safety interlocks
+
+**Safety Verification:**
+- Insulation resistance test
+- Ground continuity check
+- Voltage level verification
+- Polarity confirmation
+
+#### 10.1.3 Software Configuration
+
+**Step 1: Initial Startup**
+- Power on controller
+- Connect to "Keros-Setup-XXXX" Wi-Fi AP
+- Access setup wizard at http://192.168.4.1
+
+**Step 2: Network Setup**
+- Select home Wi-Fi network
+- Enter credentials
+- Set static IP (optional)
+- Configure mDNS hostname
+
+**Step 3: Hardware Configuration**
+- Run auto-discovery for I2C sensors
+- Assign sensors to zones
+- Configure I/O mapping
+- Calibrate sensors
+
+**Step 4: System Configuration**
+- Define zones (names, areas, types)
+- Configure heat sources
+- Set up heating curves
+- Define safety limits
+
+**Step 5: Schedule Programming**
+- Create weekly schedules
+- Set comfort/eco temperatures
+- Configure holiday mode
+
+**Step 6: Testing & Commissioning**
+- Manual control test (each zone, each actuator)
+- Sensor reading validation
+- Safety interlock test
+- Auto mode test
+- Performance verification
+
+### 10.2 Commissioning Checklist
+
+```
+□ Physical Installation
+  □ Controller securely mounted
+  □ All wiring properly terminated
+  □ Polarity checked on all connections
+  □ Grounding verified
+
+□ Sensor Configuration
+  □ All sensors detected
+  □ Sensor readings reasonable
+  □ Calibration performed
+  □ Redundant sensors validated
+
+□ Actuator Testing
+  □ Each relay tested individually
+  □ Pump speeds adjustable
+  □ Valves open/close correctly
+  □ No unwanted actuator activation
+
+□ Safety Systems
+  □ High temperature cutoff tested
+  □ Low temperature alarm tested
+  □ Flow interlock verified
+  □ Emergency stop functional
+
+□ Control Logic
+  □ Heating mode tested
+  □ Cooling mode tested (if applicable)
+  □ Auto mode functional
+  □ Zone control working
+
+□ Network & Connectivity
+  □ Wi-Fi connection stable
+  □ Dashboard accessible
+  □ API responding
+  □ MQTT publishing (if used)
+
+□ User Training
+  □ Dashboard navigation explained
+  □ Mobile app demonstrated
+  □ Schedule programming shown
+  □ Maintenance procedures reviewed
+
+□ Documentation
+  □ Wiring diagram provided
+  □ Configuration backup created
+  □ Contact information recorded
+  □ Warranty registered
+```
+
+### 10.3 Maintenance & Support
+
+#### 10.3.1 Routine Maintenance
+
+**Monthly:**
+- Check system logs for errors
+- Verify all sensors reading correctly
+- Inspect physical connections
+
+**Quarterly:**
+- Clean filters (air and water)
+- Inspect pump operations
+- Check for leaks
+- Calibrate sensors if needed
+
+**Annually:**
+- Full system inspection
+- Professional HVAC service
+- Firmware updates
+- Performance optimization
+
+#### 10.3.2 Troubleshooting Guide
+
+**Common Issues:**
+
+| Problem | Possible Cause | Solution |
+|---------|----------------|----------|
+| No heating | Compressor interlock not met | Check flow sensor, verify circulation pump running |
+| Temperature not reaching setpoint | Insufficient capacity | Increase heat source output, check heating curve |
+| Sensors reading incorrectly | Calibration drift | Recalibrate sensors, check wiring |
+| Wi-Fi disconnection | Weak signal | Relocate controller, use Wi-Fi extender |
+| High energy consumption | Inefficient operation | Review control settings, check equipment performance |
+
+#### 10.3.3 Support Resources
+
+**Built-in Help:**
+- Contextual help in web interface
+- Video tutorials (embedded links)
+- FAQ section
+- Diagnostic wizard
+
+**External Support:**
+- Online documentation (docs.keros.com)
+- Community forum
+- Email support
+- Professional installer network
+
+### 10.4 Upgrade Path
+
+**Hardware Upgrades:**
+- Additional I/O expanders
+- More sensors
+- Larger display
+- Ethernet module
+- Battery backup
+
+**Software Upgrades:**
+- Feature updates via OTA
+- New modules from marketplace
+- Integration plugins
+- Enhanced algorithms
+
+---
+
 ## Document Revision History
 
 | Version | Date | Author | Changes |
@@ -1448,7 +3918,10 @@ Optocoupler Transistor:
 | 1.0.0 | 2025-11-18 | System Architect | Initial release - Section 1: Introduction & System Overview |
 | 1.0.1 | 2025-11-18 | System Architect | Added Section 2: System Architecture |
 | 1.0.2 | 2025-11-18 | System Architect | Added Section 3: Hardware Specifications |
+| 1.0.3 | 2025-11-18 | System Architect | Added Section 4: Control Logic & Algorithms |
+| 1.0.4 | 2025-11-18 | System Architect | Added Section 5: Heat Storage Management |
+| 1.0.5 | 2025-11-18 | System Architect | Added Sections 6-10: Complete System Description |
 
 ---
 
-**Next Section:** Control Logic & Algorithms (Coming soon)
+**Document Status:** COMPLETE - All 10 sections finalized
