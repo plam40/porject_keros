@@ -18,7 +18,7 @@ This document provides a comprehensive system description for the Keros Universa
 2. **System Architecture** ✓
 3. **Hardware Specifications** ✓
 4. **Control Logic & Algorithms** ✓
-5. Heat Storage Management
+5. **Heat Storage Management** ✓
 6. User Interface Requirements
 7. Modular Design & Extensibility
 8. Communication Protocols
@@ -2187,6 +2187,632 @@ bool check_compressor_start_conditions() {
 
 ---
 
+## 5. Heat Storage Management
+
+### 5.1 Overview
+
+Heat storage systems are critical for maximizing the efficiency and flexibility of HVAC systems. The Keros controller implements sophisticated algorithms to optimize thermal storage for:
+- **Load Shifting**: Charge storage during off-peak hours or when renewable energy is available
+- **COP Optimization**: Extract heat from storage at temperatures that maximize heat pump efficiency
+- **Demand Smoothing**: Buffer rapid load changes to reduce equipment cycling
+- **Renewable Integration**: Store excess solar thermal or heat pump output for later use
+
+### 5.2 Storage Tank Types
+
+#### 5.2.1 Hot Water Storage (DHW)
+
+**Purpose:** Domestic hot water production and storage
+
+**Configuration:**
+- Single or dual tank (preheat + finish)
+- Volume: 100-500 liters typical (residential)
+- Temperature range: 45-65°C (anti-legionella cycles to 60-70°C)
+- Sensors: 3-5 temperature sensors (top, mid-top, mid, mid-bottom, bottom)
+
+**Control Strategy:**
+```cpp
+void control_dhw_storage() {
+    float temp_top = read_temp_sensor(DHW_TOP);
+    float temp_bottom = read_temp_sensor(DHW_BOTTOM);
+    float setpoint = 55.0;  // Target DHW temperature
+
+    // Charge tank from bottom
+    if (temp_top < setpoint - 5.0) {
+        // Activate heat source
+        enable_dhw_charging_pump();
+        activate_heat_source_for_dhw();
+    } else if (temp_top > setpoint + 2.0) {
+        // Tank fully charged
+        disable_dhw_charging();
+    }
+
+    // Anti-legionella cycle (weekly)
+    if (legionella_cycle_due()) {
+        heat_tank_to_temperature(65.0);
+        maintain_temperature_for_duration(65.0, 30);  // 30 minutes
+    }
+}
+```
+
+#### 5.2.2 Buffer Tank (Heating/Cooling)
+
+**Purpose:** Hydraulic separation, thermal mass, load buffering
+
+**Configuration:**
+- Volume: 300-2000 liters typical
+- Temperature range: 25-55°C (heating), 6-12°C (cooling)
+- Sensors: 4-6 temperature sensors for stratification monitoring
+- Multiple connections: Heat sources (top), loads (variable height), return (bottom)
+
+**Stratification Monitoring:**
+```cpp
+struct TankStratification {
+    float temps[6];  // Temperature at each level
+    float avg_temp;
+    float stratification_index;  // 0 = fully mixed, 1 = perfect stratification
+};
+
+TankStratification analyze_tank_stratification() {
+    TankStratification strat;
+
+    // Read all temperature sensors
+    for (int i = 0; i < 6; i++) {
+        strat.temps[i] = read_temp_sensor(BUFFER_TANK_SENSOR[i]);
+    }
+
+    // Calculate average
+    strat.avg_temp = 0;
+    for (int i = 0; i < 6; i++) {
+        strat.avg_temp += strat.temps[i];
+    }
+    strat.avg_temp /= 6;
+
+    // Calculate stratification index
+    float max_delta = strat.temps[0] - strat.temps[5];  // Top - bottom
+    float ideal_delta = 20.0;  // Ideal stratification gradient
+    strat.stratification_index = constrain(max_delta / ideal_delta, 0.0, 1.0);
+
+    return strat;
+}
+```
+
+#### 5.2.3 Phase Change Material (PCM) Storage
+
+**Purpose:** High energy density storage using latent heat
+
+**Characteristics:**
+- Phase change temperature: Selected based on application (e.g., 28°C for cooling, 58°C for heating)
+- Higher energy density than water (2-3x per unit volume)
+- Nearly isothermal charging/discharging
+
+**Control Considerations:**
+- Monitor temperature differential across PCM to detect phase change
+- Adjust flow rates to match phase change heat transfer rate
+- Account for hysteresis in phase change temperature
+
+### 5.3 Capacity Calculation
+
+#### 5.3.1 Available Energy Estimation
+
+**Sensible Heat Storage (Water):**
+
+```cpp
+float calculate_available_energy_kwh(TankType tank) {
+    float volume_liters = tank.volume;
+    float specific_heat = 4.186;  // kJ/(kg·K) for water
+    float density = 1.0;  // kg/L for water
+
+    // Read temperature distribution
+    TankStratification strat = analyze_tank_stratification();
+
+    // Method 1: Simple (using average temperature)
+    float temp_avg = strat.avg_temp;
+    float temp_min_useful = tank.min_discharge_temp;  // e.g., 30°C for heating
+
+    float energy_kwh_simple = volume_liters * density * specific_heat *
+                               (temp_avg - temp_min_useful) / 3600.0;
+
+    // Method 2: Detailed (layer-by-layer integration)
+    float energy_kwh_detailed = 0;
+    float layer_volume = volume_liters / 6;
+
+    for (int i = 0; i < 6; i++) {
+        if (strat.temps[i] > temp_min_useful) {
+            float layer_energy = layer_volume * density * specific_heat *
+                                  (strat.temps[i] - temp_min_useful) / 3600.0;
+            energy_kwh_detailed += layer_energy;
+        }
+    }
+
+    return energy_kwh_detailed;
+}
+```
+
+**State of Charge (SOC):**
+
+```cpp
+float calculate_soc_percent(TankType tank) {
+    float energy_available = calculate_available_energy_kwh(tank);
+    float energy_max = tank.volume * 1.0 * 4.186 *
+                        (tank.max_temp - tank.min_discharge_temp) / 3600.0;
+
+    float soc = (energy_available / energy_max) * 100.0;
+    return constrain(soc, 0.0, 100.0);
+}
+```
+
+### 5.4 Charging Strategies
+
+#### 5.4.1 Optimized Charging Schedule
+
+**Objective:** Charge storage when energy is cheapest or most available
+
+```cpp
+void schedule_storage_charging() {
+    // Get energy pricing for next 24 hours
+    EnergyPricing pricing = get_energy_pricing_forecast();
+
+    // Get solar forecast if solar thermal is available
+    SolarForecast solar = get_solar_forecast();
+
+    // Identify optimal charging windows
+    std::vector<TimeWindow> charging_windows;
+
+    for (int hour = 0; hour < 24; hour++) {
+        bool should_charge = false;
+
+        // Priority 1: Solar availability (free energy)
+        if (solar.irradiance[hour] > 400) {  // W/m²
+            should_charge = true;
+        }
+        // Priority 2: Off-peak pricing
+        else if (pricing.price[hour] < pricing.avg_price * 0.7) {
+            should_charge = true;
+        }
+        // Priority 3: Demand forecast
+        else if (demand_forecast[hour + 6] > storage_capacity * 0.8) {
+            should_charge = true;  // Pre-charge before high demand
+        }
+
+        if (should_charge) {
+            charging_windows.push_back({hour, hour + 1});
+        }
+    }
+
+    // Execute charging schedule
+    schedule_charging_events(charging_windows);
+}
+```
+
+#### 5.4.2 Stratification-Preserving Charging
+
+**Goal:** Maintain temperature layers for maximum usable energy
+
+```cpp
+void charge_tank_stratified(float heat_source_temp) {
+    TankStratification strat = analyze_tank_stratification();
+
+    // Determine injection height based on source temperature
+    int injection_level = 0;
+
+    for (int i = 0; i < 6; i++) {
+        if (heat_source_temp > strat.temps[i] + 2.0) {
+            injection_level = i;  // Inject above this level
+            break;
+        }
+    }
+
+    // Control valve to inject at appropriate height
+    set_injection_valve_position(injection_level);
+
+    // Adjust flow rate to preserve stratification
+    // Lower flow = better stratification, but slower charging
+    float flow_rate = calculate_optimal_flow_rate(
+        heat_source_temp,
+        strat.temps[injection_level],
+        tank_geometry
+    );
+
+    set_charging_pump_speed(flow_rate);
+}
+```
+
+### 5.5 Discharging Strategies
+
+#### 5.5.1 Variable Extraction Height
+
+**Objective:** Extract hottest water while preserving stratification
+
+```cpp
+void discharge_tank_optimized(float required_temp) {
+    TankStratification strat = analyze_tank_stratification();
+
+    // Find highest level meeting temperature requirement
+    int extraction_level = -1;
+
+    for (int i = 5; i >= 0; i--) {  // Bottom to top
+        if (strat.temps[i] >= required_temp) {
+            extraction_level = i;
+            break;
+        }
+    }
+
+    if (extraction_level == -1) {
+        // No level meets requirement
+        log_warning("Tank temperature insufficient");
+        // Activate heat source for direct heating
+        enable_direct_heating_mode();
+        return;
+    }
+
+    // Extract from identified level
+    set_extraction_valve_position(extraction_level);
+
+    // Monitor and adjust extraction height as tank discharges
+    monitor_extraction_temp();
+}
+```
+
+#### 5.5.2 Heat Pump Source Temperature Optimization
+
+**Use Case:** Extract from tank at optimal temperature for heat pump COP
+
+```cpp
+void optimize_hp_source_temp() {
+    TankStratification strat = analyze_tank_stratification();
+
+    // Heat pump COP improves with higher source temperature
+    // But we want to preserve high-temperature water for direct use
+
+    // Strategy: Extract from mid-levels for heat pump
+    float optimal_source_temp = 35.0;  // Target for good COP
+
+    // Find level closest to optimal
+    int best_level = 0;
+    float min_diff = 100.0;
+
+    for (int i = 1; i < 5; i++) {  // Avoid top and bottom
+        float diff = abs(strat.temps[i] - optimal_source_temp);
+        if (diff < min_diff) {
+            min_diff = diff;
+            best_level = i;
+        }
+    }
+
+    // Extract from best level for heat pump evaporator
+    set_hp_source_extraction_level(best_level);
+
+    // Return cooled water to bottom
+    // This maintains stratification and efficiency
+}
+```
+
+### 5.6 Multi-Tank Management
+
+#### 5.6.1 Tank Prioritization
+
+**Scenario:** Multiple tanks (DHW, buffer, solar preheat)
+
+```cpp
+void manage_multiple_tanks() {
+    // Priority order for charging
+    std::vector<Tank> tanks = {dhw_tank, buffer_tank, solar_preheat_tank};
+
+    // Assess state of charge for each tank
+    for (auto& tank : tanks) {
+        tank.soc = calculate_soc_percent(tank);
+        tank.priority = calculate_priority(tank);
+    }
+
+    // Sort by priority
+    std::sort(tanks.begin(), tanks.end(),
+              [](Tank& a, Tank& b) { return a.priority > b.priority; });
+
+    // Allocate heat source to highest priority tank
+    if (tanks[0].soc < 80.0) {  // Tank needs charging
+        charge_tank(tanks[0]);
+    }
+}
+
+int calculate_priority(Tank& tank) {
+    int priority = 0;
+
+    // DHW has highest base priority
+    if (tank.type == DHW) {
+        priority += 100;
+    }
+
+    // Low SOC increases priority
+    priority += (100 - tank.soc);
+
+    // Time-of-use pricing consideration
+    if (currently_off_peak()) {
+        priority += 50;
+    }
+
+    // Predicted demand
+    if (high_demand_forecast_next_hours(tank.type, 6)) {
+        priority += 30;
+    }
+
+    return priority;
+}
+```
+
+### 5.7 Solar Thermal Integration
+
+#### 5.7.1 Differential Temperature Control
+
+**Classic Solar Thermal Control:**
+
+```cpp
+void control_solar_thermal_pump() {
+    float temp_collector = read_temp_sensor(SOLAR_COLLECTOR);
+    float temp_tank_bottom = read_temp_sensor(SOLAR_TANK_BOTTOM);
+
+    float delta_t = temp_collector - temp_tank_bottom;
+
+    // Hysteresis control
+    static bool pump_running = false;
+
+    if (!pump_running) {
+        if (delta_t > DELTA_T_ON_THRESHOLD) {  // e.g., 8°C
+            pump_running = true;
+            enable_solar_pump();
+        }
+    } else {
+        if (delta_t < DELTA_T_OFF_THRESHOLD) {  // e.g., 3°C
+            pump_running = false;
+            disable_solar_pump();
+        }
+    }
+
+    // Variable speed for efficiency
+    if (pump_running) {
+        float pump_speed = map_float(delta_t, 5.0, 30.0, 30.0, 100.0);
+        pump_speed = constrain(pump_speed, 30.0, 100.0);
+        set_solar_pump_speed(pump_speed);
+    }
+}
+```
+
+#### 5.7.2 Overheating Protection
+
+```cpp
+void protect_solar_system_from_overheating() {
+    float temp_collector = read_temp_sensor(SOLAR_COLLECTOR);
+    float temp_tank_top = read_temp_sensor(SOLAR_TANK_TOP);
+
+    // Collector too hot (stagnation risk)
+    if (temp_collector > 95.0) {
+        // Emergency heat dump
+        if (temp_tank_top < 70.0) {
+            // Force circulation to dump heat into tank
+            set_solar_pump_speed(100.0);
+        } else {
+            // Tank also too hot - activate heat dump radiator
+            activate_heat_dump_radiator();
+        }
+    }
+
+    // Tank overheating prevention
+    if (temp_tank_top > 75.0) {
+        // Stop solar charging
+        disable_solar_pump();
+
+        // Cool tank by forced circulation to loads
+        activate_cooling_circulation();
+    }
+}
+```
+
+### 5.8 Predictive Storage Management
+
+#### 5.8.1 Demand Forecasting
+
+```cpp
+struct DemandForecast {
+    float hourly_demand_kwh[24];
+    float confidence;
+};
+
+DemandForecast forecast_demand() {
+    DemandForecast forecast;
+
+    // Method 1: Historical pattern matching
+    int day_of_week = get_day_of_week();
+    HistoricalData hist = get_historical_demand(day_of_week, 4);  // Last 4 weeks
+
+    for (int hour = 0; hour < 24; hour++) {
+        forecast.hourly_demand_kwh[hour] = hist.avg_demand[hour];
+    }
+
+    // Method 2: Weather adjustment
+    WeatherForecast weather = get_weather_forecast();
+    for (int hour = 0; hour < 24; hour++) {
+        float outdoor_temp = weather.temperature[hour];
+
+        // Heating degree days adjustment
+        if (outdoor_temp < 18.0) {
+            float hdd = 18.0 - outdoor_temp;
+            forecast.hourly_demand_kwh[hour] *= (1.0 + hdd * 0.05);
+        }
+    }
+
+    // Method 3: Occupancy prediction
+    OccupancyPattern occupancy = get_learned_occupancy();
+    for (int hour = 0; hour < 24; hour++) {
+        if (occupancy.occupied[hour]) {
+            forecast.hourly_demand_kwh[hour] *= 1.2;  // 20% increase when occupied
+        }
+    }
+
+    forecast.confidence = calculate_forecast_confidence(hist.variance);
+
+    return forecast;
+}
+```
+
+#### 5.8.2 Optimal SOC Target
+
+```cpp
+float calculate_optimal_soc_target(int hours_ahead) {
+    DemandForecast demand = forecast_demand();
+
+    // Calculate cumulative demand for forecast period
+    float cumulative_demand = 0;
+    for (int i = 0; i < hours_ahead; i++) {
+        cumulative_demand += demand.hourly_demand_kwh[i];
+    }
+
+    // Calculate required storage capacity
+    float tank_capacity_kwh = calculate_tank_capacity_kwh();
+    float required_soc = (cumulative_demand / tank_capacity_kwh) * 100.0;
+
+    // Add safety margin
+    required_soc *= 1.2;  // 20% safety margin
+
+    // Constrain to realistic values
+    required_soc = constrain(required_soc, 30.0, 95.0);
+
+    return required_soc;
+}
+```
+
+### 5.9 Efficiency Metrics & Monitoring
+
+#### 5.9.1 Storage Efficiency Tracking
+
+```cpp
+struct StorageEfficiency {
+    float energy_in_kwh;
+    float energy_out_kwh;
+    float losses_kwh;
+    float efficiency_percent;
+    float cycle_count;
+};
+
+void track_storage_efficiency() {
+    static StorageEfficiency metrics_daily;
+    static unsigned long last_reset = 0;
+
+    // Measure energy into storage
+    if (charging_active) {
+        float power_in = measure_charging_power_kw();
+        metrics_daily.energy_in_kwh += power_in * (loop_time / 3600.0);
+    }
+
+    // Measure energy out of storage
+    if (discharging_active) {
+        float power_out = measure_discharging_power_kw();
+        metrics_daily.energy_out_kwh += power_out * (loop_time / 3600.0);
+    }
+
+    // Calculate losses (standing + cycling)
+    TankStratification strat = analyze_tank_stratification();
+    float tank_avg_temp = strat.avg_temp;
+    float ambient_temp = read_ambient_temp();
+    float temp_diff = tank_avg_temp - ambient_temp;
+
+    // Standing loss (W) = U-value × Area × ΔT
+    float standing_loss_w = TANK_U_VALUE * TANK_SURFACE_AREA * temp_diff;
+    metrics_daily.losses_kwh += standing_loss_w / 1000.0 * (loop_time / 3600.0);
+
+    // Daily reset and reporting
+    if (millis() - last_reset > 86400000) {  // 24 hours
+        metrics_daily.efficiency_percent =
+            (metrics_daily.energy_out_kwh /
+             (metrics_daily.energy_in_kwh + 0.001)) * 100.0;
+
+        log_storage_efficiency(metrics_daily);
+
+        // Reset counters
+        metrics_daily = {0};
+        last_reset = millis();
+    }
+}
+```
+
+#### 5.9.2 Stratification Quality Monitoring
+
+```cpp
+void monitor_stratification_quality() {
+    TankStratification strat = analyze_tank_stratification();
+
+    // Log stratification index over time
+    log_stratification_index(strat.stratification_index);
+
+    // Alert if stratification is degrading
+    if (strat.stratification_index < 0.3) {
+        log_warning("Poor tank stratification detected");
+        log_info("Consider: reducing flow rates, checking baffles, reviewing injection points");
+    }
+
+    // Identify mixing events
+    static float prev_index = 0;
+    if (strat.stratification_index < prev_index - 0.2) {
+        log_event("Stratification disruption detected");
+        // Investigate: rapid charging/discharging, pump issues, valve problems
+    }
+
+    prev_index = strat.stratification_index;
+}
+```
+
+### 5.10 Advanced Control Strategies
+
+#### 5.10.1 Model Predictive Control (MPC) for Storage
+
+**Concept:** Optimize storage operation over a prediction horizon
+
+```cpp
+void mpc_storage_optimization() {
+    // Prediction horizon: 24 hours
+    const int HORIZON = 24;
+
+    // Get forecasts
+    DemandForecast demand = forecast_demand();
+    EnergyPricing pricing = get_energy_pricing_forecast();
+    WeatherForecast weather = get_weather_forecast();
+
+    // Define optimization problem
+    // Minimize cost while meeting demand and respecting constraints
+
+    float total_cost = 0;
+    float soc[HORIZON];
+    soc[0] = current_soc;
+
+    for (int hour = 0; hour < HORIZON; hour++) {
+        // Decision variables: charge/discharge rate
+        float charge_rate = 0;  // kW (to be optimized)
+
+        // Constraints
+        // 1. SOC limits
+        soc[hour + 1] = soc[hour] + charge_rate - demand.hourly_demand_kwh[hour];
+        soc[hour + 1] = constrain(soc[hour + 1], 20.0, 95.0);
+
+        // 2. Charging/discharging rate limits
+        charge_rate = constrain(charge_rate, -MAX_DISCHARGE_RATE, MAX_CHARGE_RATE);
+
+        // 3. Heat source capacity
+        // charge_rate limited by available heat source capacity
+
+        // Objective: minimize cost
+        if (charge_rate > 0) {
+            // Charging
+            total_cost += charge_rate * pricing.price[hour];
+        }
+
+        // (Simplified - full implementation would use optimization library)
+    }
+
+    // Apply optimal control action for current hour
+    execute_optimal_charging_rate(charge_rate_optimal[0]);
+}
+```
+
+---
+
 ## Document Revision History
 
 | Version | Date | Author | Changes |
@@ -2195,7 +2821,8 @@ bool check_compressor_start_conditions() {
 | 1.0.1 | 2025-11-18 | System Architect | Added Section 2: System Architecture |
 | 1.0.2 | 2025-11-18 | System Architect | Added Section 3: Hardware Specifications |
 | 1.0.3 | 2025-11-18 | System Architect | Added Section 4: Control Logic & Algorithms |
+| 1.0.4 | 2025-11-18 | System Architect | Added Section 5: Heat Storage Management |
 
 ---
 
-**Next Section:** Heat Storage Management (Coming soon)
+**Next Section:** User Interface Requirements (Coming soon)
