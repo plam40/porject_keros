@@ -20,6 +20,9 @@
 #include "modules/VentilationModule.h"
 #include "modules/HeatStorageModule.h"
 #include "modules/HumidityControlModule.h"
+#include "modules/WebServerModule.h"
+#include "modules/MQTTModule.h"
+#include "modules/SystemAnalyticsModule.h"
 
 // Global skeleton instance reference
 Skeleton& system = Skeleton::get_instance();
@@ -31,6 +34,9 @@ static HeatPumpModule heat_pump_module;
 static VentilationModule ventilation_module;
 static HeatStorageModule heat_storage_module;
 static HumidityControlModule humidity_module;
+static WebServerModule web_server_module;
+static MQTTModule mqtt_module;
+static SystemAnalyticsModule analytics_module;
 
 /**
  * Arduino setup function
@@ -77,6 +83,11 @@ void setup() {
 
     // Heat pump last - depends on other modules
     system.register_module(&heat_pump_module, 100);
+
+    // Web server and networking modules (low priority)
+    system.register_module(&web_server_module, 200);
+    system.register_module(&mqtt_module, 210);
+    system.register_module(&analytics_module, 220);
 
     // Configure pump module
     PumpConfig primary_pump;
@@ -174,6 +185,9 @@ void loop() {
     ventilation_module.update();
     heat_storage_module.update();
     humidity_module.update();
+    web_server_module.update();
+    mqtt_module.update();
+    analytics_module.update();
 
     // Optional: Print periodic status updates
     static uint32_t last_status_print = 0;

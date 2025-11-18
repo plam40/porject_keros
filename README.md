@@ -77,15 +77,38 @@ This HVAC controller provides intelligent management of:
   - Hysteresis-based control to prevent cycling
   - Minimum run/off time protection
 
+- **WebServerModule**: Web server with REST API and WebSocket
+  - AsyncWebServer for non-blocking HTTP handling
+  - Comprehensive REST API for all system components
+  - WebSocket for real-time monitoring and updates
+  - Authentication support (Basic Auth)
+  - CORS support for web applications
+  - JSON-based request/response format
+  - Endpoints for temperature, pumps, heat pump, humidity, analytics
+
+- **MQTTModule**: MQTT integration for smart home platforms
+  - PubSubClient for MQTT communication
+  - Home Assistant auto-discovery support
+  - State publishing for all system components
+  - Command subscriptions for remote control
+  - Last Will and Testament (LWT) support
+  - Configurable QoS and retained messages
+  - Topic structure: `hvac/{component}/{name}/{property}`
+
+- **SystemAnalyticsModule**: Advanced analytics and predictive maintenance
+  - Real-time performance metrics tracking
+  - COP (Coefficient of Performance) history and trending
+  - Runtime tracking for all components
+  - Predictive maintenance alerts based on thresholds
+  - COP optimization recommendations
+  - Energy usage analytics
+  - 24-hour rolling average calculations
+
 ### 🚧 Pending Components
 
 The following modules are specified in the system documentation but not yet implemented:
-- Web Server Module (REST API, WebSocket, web dashboard)
-- MQTT Integration Module (smart home connectivity)
 - Modbus Communication Module (industrial equipment integration)
-- Advanced COP optimization algorithms
-- Predictive maintenance features
-- Energy usage analytics
+- Mobile app interface (native iOS/Android apps)
 
 ## 🏗️ Architecture
 
@@ -361,9 +384,12 @@ Current memory allocation (estimated):
 | VentilationModule | 5 | 15 |
 | HeatStorageModule | 10 | 20 |
 | HumidityControlModule | 12 | 30 |
-| **Total Used** | **187 KB** | **855 KB** |
+| WebServerModule | 25 | 50 |
+| MQTTModule | 15 | 35 |
+| SystemAnalyticsModule | 8 | 20 |
+| **Total Used** | **235 KB** | **960 KB** |
 | **ESP32 Available** | 520 KB | 4096 KB |
-| **Safety Margin** | **64%** | **79%** |
+| **Safety Margin** | **55%** | **77%** |
 
 ## 📚 Documentation
 
@@ -425,14 +451,17 @@ This project follows strict coding standards defined in `CODING_STANDARDS.md`:
 - ✅ Heat pump module
 - ✅ Ventilation module
 - ✅ Heat storage module
+- ✅ Humidity control module
 
-### Phase 3: User Interface
-- ⏳ Web server with REST API
+### Phase 3: User Interface & Integration ✅ (COMPLETED)
+- ✅ Web server with REST API
+- ✅ WebSocket for real-time monitoring
+- ✅ MQTT integration with Home Assistant
+- ✅ Advanced analytics and predictive maintenance
 - ⏳ Web dashboard (HTML/CSS/JS)
 - ⏳ Mobile app (future)
 
-### Phase 4: Integration
-- ⏳ MQTT integration
+### Phase 4: Additional Integration
 - ⏳ Modbus support
 - ⏳ Cloud connectivity
 - ⏳ OTA updates
