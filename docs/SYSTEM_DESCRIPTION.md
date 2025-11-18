@@ -19,11 +19,11 @@ This document provides a comprehensive system description for the Keros Universa
 3. **Hardware Specifications** ✓
 4. **Control Logic & Algorithms** ✓
 5. **Heat Storage Management** ✓
-6. User Interface Requirements
-7. Modular Design & Extensibility
-8. Communication Protocols
-9. Safety & Monitoring
-10. Installation & Deployment
+6. **User Interface Requirements** ✓
+7. **Modular Design & Extensibility** ✓
+8. **Communication Protocols** ✓
+9. **Safety & Monitoring** ✓
+10. **Installation & Deployment** ✓
 
 ---
 
@@ -2813,6 +2813,1104 @@ void mpc_storage_optimization() {
 
 ---
 
+## 6. User Interface Requirements
+
+### 6.1 Overview
+
+The Keros system provides multiple user interfaces designed for different user types and use cases:
+- **Web Dashboard**: Primary interface for configuration, monitoring, and control
+- **Mobile App**: Remote access and notifications
+- **Local Display**: Basic status and emergency access
+- **REST API**: Programmatic access for integrations
+
+### 6.2 Web Dashboard
+
+#### 6.2.1 Dashboard Layout
+
+**Home Screen:**
+```
+┌──────────────────────────────────────────────────────────────┐
+│  Keros HVAC Controller             [User] [Settings] [Help] │
+├──────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐            │
+│  │  Indoor    │  │  Outdoor   │  │  System    │            │
+│  │   21.5°C   │  │   5.2°C    │  │  Running   │            │
+│  │   50% RH   │  │   85% RH   │  │  COP 3.2   │            │
+│  └────────────┘  └────────────┘  └────────────┘            │
+│                                                               │
+│  System Status: ██████████░░░░  Power: 2.3 kW               │
+│                                                               │
+│  ┌─────────────── Zone Control ──────────────────┐          │
+│  │  Living Room:  21°C  [+][-]  Mode: Auto       │          │
+│  │  Bedroom:      19°C  [+][-]  Mode: Eco        │          │
+│  │  Kitchen:      20°C  [+][-]  Mode: Comfort    │          │
+│  └────────────────────────────────────────────────┘          │
+│                                                               │
+│  ┌─────────────── Quick Actions ──────────────────┐         │
+│  │  [Boost Heat]  [Away Mode]  [Schedule]        │         │
+│  └────────────────────────────────────────────────┘         │
+│                                                               │
+│  Recent Alerts: None                                         │
+│  Energy Today: 12.5 kWh  Cost: $1.50                        │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Key Features:**
+- Real-time data updates (every 5 seconds)
+- Responsive design (mobile, tablet, desktop)
+- Dark/light theme support
+- Accessible (WCAG 2.1 AA compliant)
+
+#### 6.2.2 Configuration Interface
+
+**Setup Wizard (First-Time Configuration):**
+1. **Hardware Detection**: Auto-discover sensors and actuators
+2. **System Type**: Select HVAC configuration (heat pump, boiler, etc.)
+3. **Zone Setup**: Define zones and assign sensors
+4. **Heat Sources**: Configure available heat sources
+5. **Schedules**: Set up basic heating/cooling schedules
+6. **Calibration**: Sensor calibration and validation
+
+**Advanced Configuration:**
+- PID tuning parameters
+- Safety limits and interlocks
+- Module enable/disable
+- I/O mapping
+- Network settings
+
+#### 6.2.3 Monitoring & Diagnostics
+
+**Real-Time Monitoring:**
+- Live sensor readings with graphs
+- Equipment status (on/off, speed, mode)
+- Energy consumption (instantaneous and cumulative)
+- System performance metrics (COP, efficiency)
+
+**Historical Data:**
+- Temperature trends (hour/day/week/month/year)
+- Energy consumption reports
+- Equipment runtime logs
+- Fault history
+
+**System Diagnostics:**
+- Module health status
+- Communication diagnostics
+- Sensor validation
+- Performance analysis
+
+### 6.3 Mobile Application
+
+#### 6.3.1 Features
+
+**Core Functions:**
+- Temperature setpoint adjustment
+- Mode selection (auto/comfort/eco/away)
+- Schedule management
+- Real-time status monitoring
+- Push notifications for alerts
+
+**Notifications:**
+- Critical alerts (system faults, safety events)
+- Maintenance reminders
+- Energy reports
+- Temperature threshold alerts
+
+#### 6.3.2 Platform Support
+
+- **iOS**: Native app (Swift/SwiftUI) or progressive web app
+- **Android**: Native app (Kotlin) or progressive web app
+- **Cross-platform**: React Native or Flutter option
+
+### 6.4 Local Display (Optional)
+
+**Hardware:**
+- OLED (128x64) for basic status
+- TFT touchscreen (320x240) for interactive control
+
+**Display Content:**
+- Current temperatures (indoor/outdoor)
+- System status (heating/cooling/idle)
+- Active alarms
+- Touch controls for setpoint adjustment
+
+### 6.5 REST API
+
+#### 6.5.1 API Endpoints
+
+**Authentication:**
+```
+POST /api/auth/login
+POST /api/auth/refresh
+POST /api/auth/logout
+```
+
+**System Status:**
+```
+GET /api/status
+GET /api/sensors
+GET /api/zones
+GET /api/equipment
+```
+
+**Control:**
+```
+POST /api/zones/{id}/setpoint
+POST /api/system/mode
+POST /api/equipment/{id}/command
+```
+
+**Configuration:**
+```
+GET /api/config
+PUT /api/config
+GET /api/schedules
+POST /api/schedules
+```
+
+**Data & Analytics:**
+```
+GET /api/data/historical?start={timestamp}&end={timestamp}
+GET /api/data/energy
+GET /api/data/performance
+```
+
+#### 6.5.2 Authentication & Security
+
+- JWT-based authentication
+- Role-based access control (admin, user, read-only)
+- API rate limiting
+- HTTPS/TLS enforcement
+- API key management
+
+### 6.6 User Experience (UX) Principles
+
+**Simplicity:**
+- Default to "auto" mode for hands-off operation
+- Progressive disclosure of advanced features
+- Contextual help and tooltips
+
+**Feedback:**
+- Immediate visual feedback for user actions
+- Clear indication of system state changes
+- Progress indicators for long operations
+
+**Safety:**
+- Confirmation dialogs for critical actions
+- Undo capability where applicable
+- Warnings for out-of-range values
+
+**Performance:**
+- Fast page loads (<2 seconds)
+- Smooth animations (60 fps)
+- Offline capability for cached data
+
+---
+
+## 7. Modular Design & Extensibility
+
+### 7.1 Module Development Framework
+
+#### 7.1.1 Creating a New Module
+
+**Step 1: Define Module Interface**
+
+Create `my_module.interface`:
+```json
+{
+  "module_name": "my_custom_module",
+  "version": "1.0.0",
+  "api_version": "1.0.0",
+  "description": "Custom functionality for specific application",
+  "author": "Developer Name",
+  "dependencies": {
+    "modules": [],
+    "hardware": ["GPIO"],
+    "minimum_firmware": "1.0.0"
+  },
+  "capabilities": [
+    "custom_control",
+    "data_logging"
+  ],
+  "resource_requirements": {
+    "ram_bytes": 4096,
+    "flash_bytes": 16384,
+    "loop_frequency_hz": 1
+  },
+  "configuration_schema": {
+    "type": "object",
+    "properties": {
+      "enabled": {"type": "boolean", "default": true},
+      "update_interval": {"type": "integer", "default": 60}
+    },
+    "required": ["enabled"]
+  }
+}
+```
+
+**Step 2: Implement Module Class**
+
+Create `my_module.h`:
+```cpp
+#ifndef MY_MODULE_H
+#define MY_MODULE_H
+
+#include "module_interface.h"
+
+class MyCustomModule : public ModuleInterface {
+private:
+    bool enabled;
+    unsigned long last_update;
+
+public:
+    MyCustomModule();
+
+    // Required interface methods
+    ModuleMetadata get_metadata() override;
+    HealthStatus health_check() override;
+    bool initialize(Configuration config) override;
+    void shutdown() override;
+    String get_api_version() override;
+    void loop() override;
+
+    // Custom methods
+    void process_data();
+};
+
+#endif
+```
+
+Create `my_module.cpp`:
+```cpp
+#include "my_module.h"
+
+MyCustomModule::MyCustomModule() {
+    enabled = false;
+    last_update = 0;
+}
+
+ModuleMetadata MyCustomModule::get_metadata() {
+    ModuleMetadata meta;
+    meta.name = "my_custom_module";
+    meta.version = "1.0.0";
+    meta.description = "Custom functionality";
+    return meta;
+}
+
+HealthStatus MyCustomModule::health_check() {
+    if (!enabled) return HEALTH_DISABLED;
+
+    // Perform health checks
+    if (/* some error condition */) {
+        return HEALTH_CRITICAL;
+    }
+
+    return HEALTH_HEALTHY;
+}
+
+bool MyCustomModule::initialize(Configuration config) {
+    enabled = config.get_bool("enabled", true);
+
+    // Initialize resources
+
+    log_info("MyCustomModule initialized");
+    return true;
+}
+
+void MyCustomModule::shutdown() {
+    // Clean up resources
+    enabled = false;
+    log_info("MyCustomModule shutdown");
+}
+
+String MyCustomModule::get_api_version() {
+    return "1.0.0";
+}
+
+void MyCustomModule::loop() {
+    if (!enabled) return;
+
+    unsigned long now = millis();
+    if (now - last_update > 1000) {  // Update every second
+        process_data();
+        last_update = now;
+    }
+}
+
+void MyCustomModule::process_data() {
+    // Custom module logic here
+}
+```
+
+**Step 3: Register Module**
+
+Add to `modules/modules.cpp`:
+```cpp
+#include "my_module.h"
+
+void register_modules() {
+    // Existing modules...
+
+    skeleton.register_module(new MyCustomModule());
+}
+```
+
+#### 7.1.2 Module Communication
+
+**Publishing Events:**
+```cpp
+void MyCustomModule::loop() {
+    // Create and publish event
+    Event event;
+    event.type = "CUSTOM_DATA_UPDATE";
+    event.source = "my_custom_module";
+    event.priority = PRIORITY_NORMAL;
+    event.data["value"] = read_sensor();
+
+    skeleton.publish_event(event);
+}
+```
+
+**Subscribing to Events:**
+```cpp
+void MyCustomModule::initialize(Configuration config) {
+    // Subscribe to temperature readings
+    skeleton.subscribe("TEMPERATURE_READING",
+        [this](Event& event) {
+            float temp = event.data["value"];
+            process_temperature(temp);
+        });
+}
+```
+
+### 7.2 Plugin System
+
+#### 7.2.1 Dynamic Module Loading
+
+**Module Discovery:**
+- Scan `/modules/` directory at startup
+- Load `.interface` files
+- Validate compatibility
+- Resolve dependencies
+- Initialize in correct order
+
+**Hot Reload (Development Mode):**
+```cpp
+bool reload_module(String module_name) {
+    // 1. Pause module
+    Module* mod = skeleton.get_module(module_name);
+    if (!mod) return false;
+
+    mod->set_state(MODULE_PAUSED);
+
+    // 2. Shutdown
+    mod->shutdown();
+
+    // 3. Reload code (from updated binary)
+    // (Platform-specific implementation)
+
+    // 4. Re-initialize
+    if (!mod->initialize(mod->get_config())) {
+        log_error("Module reload failed");
+        return false;
+    }
+
+    // 5. Resume
+    mod->set_state(MODULE_RUNNING);
+
+    return true;
+}
+```
+
+### 7.3 Integration Patterns
+
+#### 7.3.1 Third-Party Smart Home Integration
+
+**Home Assistant Integration:**
+- MQTT Auto-discovery
+- Entity definitions (climate, sensor, switch)
+- State reporting
+- Command handling
+
+**Example MQTT Auto-Discovery:**
+```json
+{
+  "name": "Keros Living Room",
+  "unique_id": "keros_zone_living_room",
+  "device_class": "temperature",
+  "state_topic": "homeassistant/climate/keros/living_room/state",
+  "command_topic": "homeassistant/climate/keros/living_room/set",
+  "temperature_state_topic": "homeassistant/sensor/keros/living_room_temp/state",
+  "temperature_command_topic": "homeassistant/climate/keros/living_room/set_temp",
+  "modes": ["off", "heat", "cool", "auto"],
+  "min_temp": 15,
+  "max_temp": 30
+}
+```
+
+#### 7.3.2 Custom Scripting (Lua/Python)
+
+**Allow users to define custom control logic:**
+
+```python
+# Example: Custom away mode script
+def on_away_mode_activate():
+    set_all_zones_temperature(16.0)  # Energy saving
+    enable_frost_protection()
+    disable_dhw_heating()  # No hot water needed
+
+def on_away_mode_deactivate():
+    restore_previous_settings()
+    enable_dhw_heating()
+```
+
+### 7.4 Module Marketplace (Future)
+
+**Vision:** Community-developed modules
+
+- Module repository with version control
+- Automated testing and validation
+- User ratings and reviews
+- One-click installation
+- Secure sandboxing
+
+---
+
+## 8. Communication Protocols
+
+### 8.1 Wi-Fi & Network
+
+#### 8.1.1 Network Configuration
+
+**Connection Modes:**
+- **Station Mode (STA)**: Connect to existing Wi-Fi network
+- **Access Point Mode (AP)**: Create temporary hotspot for setup
+- **AP+STA**: Simultaneous modes for advanced users
+
+**Initial Setup (Captive Portal):**
+1. Device boots in AP mode ("Keros-Setup-XXXX")
+2. User connects to AP
+3. Captive portal presents Wi-Fi selection
+4. User enters credentials
+5. Device connects and switches to STA mode
+
+**Network Security:**
+- WPA2/WPA3 support
+- Static IP or DHCP
+- mDNS for local discovery (`keros.local`)
+- Fallback to AP mode if connection fails
+
+#### 8.1.2 Protocol Support
+
+**HTTP/HTTPS:**
+- Web server for dashboard (port 80/443)
+- REST API endpoints
+- WebSocket for real-time updates
+- TLS/SSL with self-signed or custom certificates
+
+**MQTT:**
+- Publish system state
+- Subscribe to commands
+- QoS levels (0, 1, 2 supported)
+- Retained messages for persistent state
+- Last Will and Testament (LWT) for availability
+
+**Modbus TCP:**
+- Optional for BMS integration
+- Standard Modbus register mapping
+- Configurable slave address
+
+### 8.2 Serial Communication
+
+#### 8.2.1 Modbus RTU
+
+**Configuration:**
+- Baud rate: 9600-115200 (configurable)
+- Parity: None, Even, Odd
+- Stop bits: 1 or 2
+- Slave address: 1-247
+
+**Register Map (Example):**
+| Address | Type | Description | Unit |
+|---------|------|-------------|------|
+| 0-9 | Input | Zone temperatures | 0.1°C |
+| 10-19 | Input | Humidity levels | 0.1% RH |
+| 20 | Input | Outdoor temperature | 0.1°C |
+| 100 | Holding | Zone 1 setpoint | 0.1°C |
+| 101 | Holding | Zone 2 setpoint | 0.1°C |
+| 200 | Coil | System enable | Boolean |
+| 201 | Coil | Heating mode | Boolean |
+
+#### 8.2.2 Debug/Programming Interface
+
+**UART0 (USB):**
+- Console output for debugging
+- Firmware upload
+- Diagnostic commands
+- Log streaming
+
+### 8.3 I2C & SPI Sensors
+
+**I2C Bus Management:**
+- Bus scanning for device discovery
+- Address conflict detection
+- Clock stretching support
+- Error recovery (bus reset)
+
+**Example: Multi-sensor polling:**
+```cpp
+void poll_i2c_sensors() {
+    // Iterate through configured sensors
+    for (auto& sensor : i2c_sensors) {
+        if (sensor.is_available()) {
+            sensor_data data = sensor.read();
+            publish_sensor_data(sensor.id, data);
+        } else {
+            log_warning("Sensor unavailable: " + sensor.name);
+            attempt_recovery(sensor);
+        }
+    }
+}
+```
+
+### 8.4 1-Wire Protocol
+
+**DS18B20 Temperature Sensors:**
+- Multiple sensors on single GPIO
+- Parasitic power mode support
+- 9-12 bit resolution (user selectable)
+- Asynchronous conversion for efficiency
+
+**Topology Considerations:**
+- Star topology preferred for reliability
+- Bus length: up to 100m with proper wiring
+- Pull-up resistor: 4.7kΩ typical
+- Avoid long stub lengths
+
+### 8.5 BLE (Bluetooth Low Energy)
+
+#### 8.5.1 Use Cases
+
+**Commissioning:**
+- Mobile app pairing during installation
+- Secure parameter transfer
+- Faster than Wi-Fi setup for some users
+
+**Proximity Detection:**
+- Detect when user is home (beacon mode)
+- Automatic mode switching
+- Presence-based control
+
+**Sensor Integration:**
+- BLE thermometers (e.g., Xiaomi Mi Temperature)
+- Wireless room sensors
+- Energy monitoring devices
+
+#### 8.5.2 BLE Services & Characteristics
+
+**Custom GATT Service:**
+```
+Service UUID: 0000180a-0000-1000-8000-00805f9b34fb
+
+Characteristics:
+- Temperature Setpoint (R/W): Set zone temperature
+- Current Temperature (R/Notify): Read current temp
+- System Mode (R/W): Heat/Cool/Auto mode
+- System Status (R/Notify): Running state
+```
+
+### 8.6 Cloud Connectivity
+
+#### 8.6.1 Cloud Services
+
+**Remote Access:**
+- Secure tunnel for remote dashboard access
+- Encrypted communication (TLS 1.2+)
+- NAT traversal
+- Optional: VPN integration
+
+**Data Analytics:**
+- Historical data upload
+- Performance benchmarking
+- Predictive maintenance
+- Firmware update distribution
+
+**Alexa/Google Home Integration:**
+- Cloud-to-cloud integration
+- Voice command handling
+- Status queries
+
+#### 8.6.2 Data Privacy
+
+**User Control:**
+- Opt-in for cloud features
+- Local-only operation mode
+- Data retention policies
+- GDPR compliance
+
+---
+
+## 9. Safety & Monitoring
+
+### 9.1 Safety Systems
+
+#### 9.1.1 Multi-Layer Safety Architecture
+
+**Hardware Safety:**
+- Independent temperature limit switches
+- Pressure relief valves
+- Flow switches for compressor protection
+- Emergency stop button (optional)
+
+**Software Safety:**
+- Watchdog timer (ESP32 hardware watchdog)
+- Safety task at highest priority
+- Sanity checks on all sensor readings
+- Fail-safe defaults
+
+**Redundant Sensors (Critical Points):**
+- Dual temperature sensors on critical measurements
+- Cross-validation between sensors
+- Fault detection via sensor disagreement
+
+#### 9.1.2 Safety Checks
+
+**Every Control Cycle (1 second):**
+```cpp
+void safety_checks() {
+    // Temperature limits
+    check_temperature_limits();
+
+    // Pressure limits
+    check_pressure_limits();
+
+    // Flow interlocks
+    check_flow_interlocks();
+
+    // Sensor health
+    check_sensor_health();
+
+    // Watchdog
+    feed_watchdog();
+}
+```
+
+**Fault Response Matrix:**
+| Fault Type | Response | Recovery |
+|------------|----------|----------|
+| Over-temperature | Emergency shutdown | Manual |
+| Sensor failure | Use redundant sensor, safe mode | Automatic after repair |
+| Communication loss | Continue with last valid data (60s limit) | Automatic |
+| Power brownout | Graceful shutdown, save state | Automatic on power restore |
+| Watchdog timeout | System reset | Automatic |
+
+#### 9.1.3 Emergency Shutdown Procedure
+
+```cpp
+void emergency_shutdown(String reason) {
+    // 1. Disable all outputs immediately
+    disable_all_outputs();
+
+    // 2. Log fault with timestamp
+    log_critical("EMERGENCY SHUTDOWN: " + reason);
+    log_system_state();  // Capture state for diagnostics
+
+    // 3. Activate alarms
+    activate_local_alarm();
+    send_emergency_notification();
+
+    // 4. Enter safe mode
+    system_state = STATE_EMERGENCY_SHUTDOWN;
+
+    // 5. Require manual recovery
+    require_manual_reset = true;
+}
+```
+
+### 9.2 Monitoring & Diagnostics
+
+#### 9.2.1 System Health Monitoring
+
+**Module Health Checks:**
+- CPU usage per module
+- Memory usage per module
+- Execution time tracking
+- Error rate monitoring
+
+**Performance Metrics:**
+```cpp
+struct SystemMetrics {
+    float cpu_usage_percent;
+    float ram_usage_percent;
+    int loop_time_ms;
+    int loop_overruns;
+    int event_queue_depth;
+    int wifi_signal_strength;
+};
+```
+
+#### 9.2.2 Predictive Maintenance
+
+**Equipment Runtime Tracking:**
+- Compressor run hours
+- Pump run hours
+- Valve cycle counts
+- Filter usage (air and water)
+
+**Maintenance Alerts:**
+- Service reminder at configured intervals
+- Degraded performance detection
+- Unusual behavior patterns
+
+**Example: Pump Performance Degradation Detection**
+```cpp
+void monitor_pump_performance() {
+    float current_flow = read_flow_meter();
+    float pump_speed = get_pump_speed();
+
+    // Calculate flow per unit speed
+    float flow_efficiency = current_flow / (pump_speed + 0.1);
+
+    // Compare to historical baseline
+    float baseline_efficiency = get_historical_avg_efficiency();
+
+    if (flow_efficiency < baseline_efficiency * 0.8) {
+        log_warning("Pump efficiency degraded - check for blockage or wear");
+        schedule_maintenance("circulation_pump");
+    }
+}
+```
+
+#### 9.2.3 Data Logging
+
+**Log Levels:**
+- **CRITICAL**: System failures, safety events
+- **ERROR**: Operational errors, recoverable faults
+- **WARNING**: Abnormal conditions, performance issues
+- **INFO**: State changes, important events
+- **DEBUG**: Detailed diagnostic information
+
+**Log Storage:**
+- RAM ring buffer (last 100 entries)
+- SD card (persistent, rotated daily)
+- Cloud upload (optional, aggregated)
+
+**Log Format:**
+```
+[2025-11-18 14:32:15.234] [INFO] [heat_pump_module] Compressor started, target COP: 3.5
+[2025-11-18 14:32:16.123] [DEBUG] [pid_controller] Kp=5.0, Ki=0.1, Kd=0.5, error=-2.3
+```
+
+### 9.3 Fault Detection & Recovery
+
+#### 9.3.1 Sensor Fault Detection
+
+**Methods:**
+- Range checking (values within physical limits)
+- Rate-of-change limits
+- Redundant sensor comparison
+- Stuck sensor detection (no change over time)
+
+**Recovery Actions:**
+- Switch to redundant sensor
+- Use estimated value from model
+- Enter safe mode with reduced functionality
+- Alert user for service
+
+#### 9.3.2 Communication Fault Handling
+
+**Wi-Fi Disconnection:**
+```cpp
+void handle_wifi_disconnection() {
+    // Continue local control
+    log_warning("Wi-Fi disconnected, continuing local operation");
+
+    // Attempt reconnection
+    wifi_reconnect_attempts = 0;
+    while (wifi_reconnect_attempts < MAX_RECONNECTS) {
+        if (wifi.reconnect()) {
+            log_info("Wi-Fi reconnected");
+            return;
+        }
+        wifi_reconnect_attempts++;
+        delay(5000);  // Wait 5 seconds between attempts
+    }
+
+    // If all attempts fail, continue offline
+    log_error("Wi-Fi reconnection failed, running offline");
+}
+```
+
+### 9.4 Cybersecurity
+
+#### 9.4.1 Security Measures
+
+**Authentication:**
+- Strong password requirements
+- Account lockout after failed attempts
+- Session timeout
+- Multi-factor authentication (optional)
+
+**Network Security:**
+- HTTPS/TLS for all web traffic
+- Encrypted MQTT (if used)
+- Firewall rules (if using Ethernet)
+- Regular security updates
+
+**Code Security:**
+- Input validation on all API endpoints
+- SQL injection prevention (if database used)
+- XSS protection in web interface
+- Signed firmware updates
+
+#### 9.4.2 Firmware Updates
+
+**Over-The-Air (OTA) Updates:**
+```cpp
+bool perform_ota_update(String firmware_url) {
+    // 1. Verify user authorization
+    if (!user_authorized_for_update()) {
+        return false;
+    }
+
+    // 2. Download and verify signature
+    if (!download_and_verify_firmware(firmware_url)) {
+        log_error("Firmware verification failed");
+        return false;
+    }
+
+    // 3. Enter safe mode (minimal control)
+    enter_safe_mode();
+
+    // 4. Perform update
+    if (!flash_new_firmware()) {
+        log_critical("Firmware update failed");
+        rollback_to_previous();
+        return false;
+    }
+
+    // 5. Reboot
+    ESP.restart();
+    return true;
+}
+```
+
+**Update Safety:**
+- Rollback capability
+- Backup of previous firmware
+- Staged rollout (beta testers first)
+- Version compatibility checks
+
+---
+
+## 10. Installation & Deployment
+
+### 10.1 Installation Process
+
+#### 10.1.1 Pre-Installation Planning
+
+**Site Survey:**
+- Identify heat sources (heat pump, boiler, solar, etc.)
+- Count heating/cooling zones
+- Locate sensor installation points
+- Plan controller mounting location
+- Assess power supply requirements
+- Check network connectivity
+
+**Bill of Materials:**
+- Controller board (appropriate configuration)
+- Sensors (temperature, humidity, pressure, flow)
+- Actuators and relays
+- Wiring and connectors
+- Mounting hardware
+- Power supply
+
+#### 10.1.2 Physical Installation
+
+**Controller Mounting:**
+- Location: Near existing HVAC controls, mechanical room
+- Mounting: DIN rail, wall mount, or panel mount
+- Clearance: Adequate ventilation, access for service
+- Protection: IP20 minimum, IP54 for harsh environments
+
+**Wiring Installation:**
+1. **Power Wiring:**
+   - Disconnect main power
+   - Install dedicated 24V power supply
+   - Connect to controller power input
+   - Verify polarity
+
+2. **Sensor Wiring:**
+   - Run shielded cables for analog sensors
+   - Use CAT5/6 for 1-Wire sensor networks
+   - Label all wires clearly
+   - Test continuity before connection
+
+3. **Actuator Wiring:**
+   - Connect relays to HVAC equipment
+   - Verify voltage and current ratings
+   - Install contactors for high-power loads
+   - Add safety interlocks
+
+**Safety Verification:**
+- Insulation resistance test
+- Ground continuity check
+- Voltage level verification
+- Polarity confirmation
+
+#### 10.1.3 Software Configuration
+
+**Step 1: Initial Startup**
+- Power on controller
+- Connect to "Keros-Setup-XXXX" Wi-Fi AP
+- Access setup wizard at http://192.168.4.1
+
+**Step 2: Network Setup**
+- Select home Wi-Fi network
+- Enter credentials
+- Set static IP (optional)
+- Configure mDNS hostname
+
+**Step 3: Hardware Configuration**
+- Run auto-discovery for I2C sensors
+- Assign sensors to zones
+- Configure I/O mapping
+- Calibrate sensors
+
+**Step 4: System Configuration**
+- Define zones (names, areas, types)
+- Configure heat sources
+- Set up heating curves
+- Define safety limits
+
+**Step 5: Schedule Programming**
+- Create weekly schedules
+- Set comfort/eco temperatures
+- Configure holiday mode
+
+**Step 6: Testing & Commissioning**
+- Manual control test (each zone, each actuator)
+- Sensor reading validation
+- Safety interlock test
+- Auto mode test
+- Performance verification
+
+### 10.2 Commissioning Checklist
+
+```
+□ Physical Installation
+  □ Controller securely mounted
+  □ All wiring properly terminated
+  □ Polarity checked on all connections
+  □ Grounding verified
+
+□ Sensor Configuration
+  □ All sensors detected
+  □ Sensor readings reasonable
+  □ Calibration performed
+  □ Redundant sensors validated
+
+□ Actuator Testing
+  □ Each relay tested individually
+  □ Pump speeds adjustable
+  □ Valves open/close correctly
+  □ No unwanted actuator activation
+
+□ Safety Systems
+  □ High temperature cutoff tested
+  □ Low temperature alarm tested
+  □ Flow interlock verified
+  □ Emergency stop functional
+
+□ Control Logic
+  □ Heating mode tested
+  □ Cooling mode tested (if applicable)
+  □ Auto mode functional
+  □ Zone control working
+
+□ Network & Connectivity
+  □ Wi-Fi connection stable
+  □ Dashboard accessible
+  □ API responding
+  □ MQTT publishing (if used)
+
+□ User Training
+  □ Dashboard navigation explained
+  □ Mobile app demonstrated
+  □ Schedule programming shown
+  □ Maintenance procedures reviewed
+
+□ Documentation
+  □ Wiring diagram provided
+  □ Configuration backup created
+  □ Contact information recorded
+  □ Warranty registered
+```
+
+### 10.3 Maintenance & Support
+
+#### 10.3.1 Routine Maintenance
+
+**Monthly:**
+- Check system logs for errors
+- Verify all sensors reading correctly
+- Inspect physical connections
+
+**Quarterly:**
+- Clean filters (air and water)
+- Inspect pump operations
+- Check for leaks
+- Calibrate sensors if needed
+
+**Annually:**
+- Full system inspection
+- Professional HVAC service
+- Firmware updates
+- Performance optimization
+
+#### 10.3.2 Troubleshooting Guide
+
+**Common Issues:**
+
+| Problem | Possible Cause | Solution |
+|---------|----------------|----------|
+| No heating | Compressor interlock not met | Check flow sensor, verify circulation pump running |
+| Temperature not reaching setpoint | Insufficient capacity | Increase heat source output, check heating curve |
+| Sensors reading incorrectly | Calibration drift | Recalibrate sensors, check wiring |
+| Wi-Fi disconnection | Weak signal | Relocate controller, use Wi-Fi extender |
+| High energy consumption | Inefficient operation | Review control settings, check equipment performance |
+
+#### 10.3.3 Support Resources
+
+**Built-in Help:**
+- Contextual help in web interface
+- Video tutorials (embedded links)
+- FAQ section
+- Diagnostic wizard
+
+**External Support:**
+- Online documentation (docs.keros.com)
+- Community forum
+- Email support
+- Professional installer network
+
+### 10.4 Upgrade Path
+
+**Hardware Upgrades:**
+- Additional I/O expanders
+- More sensors
+- Larger display
+- Ethernet module
+- Battery backup
+
+**Software Upgrades:**
+- Feature updates via OTA
+- New modules from marketplace
+- Integration plugins
+- Enhanced algorithms
+
+---
+
 ## Document Revision History
 
 | Version | Date | Author | Changes |
@@ -2822,7 +3920,8 @@ void mpc_storage_optimization() {
 | 1.0.2 | 2025-11-18 | System Architect | Added Section 3: Hardware Specifications |
 | 1.0.3 | 2025-11-18 | System Architect | Added Section 4: Control Logic & Algorithms |
 | 1.0.4 | 2025-11-18 | System Architect | Added Section 5: Heat Storage Management |
+| 1.0.5 | 2025-11-18 | System Architect | Added Sections 6-10: Complete System Description |
 
 ---
 
-**Next Section:** User Interface Requirements (Coming soon)
+**Document Status:** COMPLETE - All 10 sections finalized
