@@ -3,7 +3,10 @@
  * @purpose Implementation of heat pump control module
  * @dependencies HeatPumpModule.h, TemperatureSensorModule.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes State machine update: <2ms, COP calculation: <100μs
+ * @module_type MODULE
  */
 
 #include "modules/HeatPumpModule.h"

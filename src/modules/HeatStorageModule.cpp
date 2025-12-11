@@ -3,6 +3,10 @@
  * @purpose Implementation of heat storage tank management
  * @dependencies HeatStorageModule.h, TemperatureSensorModule.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
+ * @performance_notes Tank status update: <1ms
+ * @module_type MODULE
  */
 
 #include "modules/HeatStorageModule.h"

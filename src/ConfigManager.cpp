@@ -3,7 +3,10 @@
  * @purpose Implementation of configuration management system
  * @dependencies ConfigManager.h, ArduinoJson, SPIFFS
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Uses SPIFFS for persistent storage, ~100ms for save operations
+ * @module_type SKELETON
  */
 
 #include "ConfigManager.h"

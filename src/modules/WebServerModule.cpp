@@ -3,7 +3,10 @@
  * @purpose Implementation of web server module
  * @dependencies WebServerModule.h, WiFi, AsyncWebServer
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Async server handles requests without blocking
+ * @module_type MODULE
  */
 
 #include "modules/WebServerModule.h"
@@ -126,8 +129,9 @@ void WebServerModule::shutdown() {
     Serial.println("[WebServer] Shutting down...");
 
     // Unsubscribe from events
-    for (uint32_t sub_id : event_subscriptions_) {
-        // We don't know which event type, but that's OK
+    EventBus& bus = EventBus::get_instance();
+    for (const auto& sub : event_subscriptions_) {
+        bus.unsubscribe(sub.type, sub.id);
     }
     event_subscriptions_.clear();
 
@@ -301,7 +305,7 @@ void WebServerModule::subscribe_to_events() {
             serializeJson(doc, json);
             broadcast_message("temperature_update", json);
         });
-    event_subscriptions_.push_back(temp_sub);
+    event_subscriptions_.push_back({EventType::TEMPERATURE_CHANGED, temp_sub});
 
     // Subscribe to safety violations
     auto safety_sub = bus.subscribe(EventType::SAFETY_VIOLATION,
@@ -315,7 +319,7 @@ void WebServerModule::subscribe_to_events() {
             serializeJson(doc, json);
             broadcast_message("safety_violation", json);
         });
-    event_subscriptions_.push_back(safety_sub);
+    event_subscriptions_.push_back({EventType::SAFETY_VIOLATION, safety_sub});
 
     Serial.println("[WebServer] Subscribed to system events");
 }

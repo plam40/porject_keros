@@ -3,7 +3,10 @@
  * @purpose Implementation of event-driven communication system
  * @dependencies EventBus.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Optimized for minimal latency with direct callback invocation
+ * @module_type SKELETON
  */
 
 #include "EventBus.h"

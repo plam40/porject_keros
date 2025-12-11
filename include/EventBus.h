@@ -3,8 +3,11 @@
  * @purpose Event-driven communication system for inter-module messaging
  * @dependencies ModuleInterface.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Event dispatch is O(n) where n = number of subscribers to that event type
  *                     Typical dispatch time: 50-200μs for 10 subscribers
+ * @module_type SKELETON
  *
  * The EventBus provides decoupled communication between modules. Modules can publish
  * events without knowing which modules will consume them, enabling loose coupling
@@ -55,6 +58,11 @@ enum class EventType {
     FAN_STATE_CHANGED,
     AIR_QUALITY_CHANGED,
     FILTER_MAINTENANCE_REQUIRED,
+
+    // Humidity events
+    HUMIDITY_CHANGED,
+    HUMIDITY_THRESHOLD_EXCEEDED,
+    MOLD_RISK_DETECTED,
 
     // Heat storage events
     TANK_TEMPERATURE_CHANGED,

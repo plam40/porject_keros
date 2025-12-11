@@ -3,7 +3,10 @@
  * @purpose Temperature sensor management module for DS18B20 sensors
  * @dependencies ModuleInterface.h, HAL.h, EventBus.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Reading all sensors: ~10-20ms per sensor with default resolution
+ * @module_type MODULE
  *
  * This module manages all temperature sensors in the HVAC system. It:
  * - Discovers DS18B20 sensors on the OneWire bus

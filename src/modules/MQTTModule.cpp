@@ -3,6 +3,10 @@
  * @purpose Implementation of MQTT integration module
  * @dependencies MQTTModule.h, PubSubClient
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
+ * @performance_notes MQTT publish: 5-15ms, Subscribe callback: <1ms
+ * @module_type MODULE
  */
 
 #include "modules/MQTTModule.h"

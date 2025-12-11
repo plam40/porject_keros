@@ -3,7 +3,10 @@
  * @purpose Core skeleton system that manages modules, events, safety, and configuration
  * @dependencies ModuleInterface.h, EventBus.h, SafetyEngine.h, ConfigManager.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Full system initialization: ~2-5 seconds, main loop: ~1ms
+ * @module_type SKELETON
  *
  * The Skeleton is the core of the HVAC controller. It:
  * - Manages module lifecycle (registration, initialization, shutdown)

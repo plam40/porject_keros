@@ -3,7 +3,10 @@
  * @purpose Hardware Abstraction Layer for HVAC Controller
  * @dependencies Arduino.h, ESP32 peripheral libraries
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes GPIO operations: <1μs, ADC: ~10-20μs, PWM setup: ~50μs
+ * @module_type SKELETON
  *
  * The HAL provides a clean, consistent interface to all hardware peripherals.
  * This abstraction allows for easier testing, portability, and maintainability.

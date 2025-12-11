@@ -3,7 +3,10 @@
  * @purpose Main entry point for HVAC Controller
  * @dependencies Skeleton.h and all module headers
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Main loop runs at ~1kHz, can be adjusted based on requirements
+ * @module_type SKELETON
  *
  * This file initializes the HVAC controller system and runs the main control loop.
  * Modules are registered here and the skeleton manages their lifecycle.

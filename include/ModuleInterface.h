@@ -3,7 +3,10 @@
  * @purpose Base interface that all HVAC controller modules must implement
  * @dependencies None (base interface)
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Virtual methods have minimal overhead (~5-10ns per call on ESP32)
+ * @module_type SKELETON
  *
  * This interface ensures all modules follow the skeleton + module architecture pattern
  * defined in CODING_STANDARDS.md. Every module must implement these methods to ensure

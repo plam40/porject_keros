@@ -3,6 +3,10 @@
  * @purpose Implementation of ventilation control module
  * @dependencies VentilationModule.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
+ * @performance_notes Fan speed update: <1ms
+ * @module_type MODULE
  */
 
 #include "modules/VentilationModule.h"
@@ -13,6 +17,7 @@ VentilationModule::VentilationModule()
       supply_speed_(0),
       exhaust_speed_(0),
       total_runtime_ms_(0),
+      last_update_ms_(0),
       has_error_(false)
 {
     state_ = ModuleState::UNINITIALIZED;
@@ -72,6 +77,9 @@ bool VentilationModule::initialize() {
     hal.pwm_write(config_.supply_fan_channel, 0);
     hal.pwm_write(config_.exhaust_fan_channel, 0);
 
+    // Initialize timing
+    last_update_ms_ = millis();
+
     state_ = ModuleState::RUNNING;
     Serial.println("[Ventilation] Initialized");
     return true;
@@ -97,9 +105,14 @@ void VentilationModule::update() {
         return;
     }
 
+    // Calculate actual elapsed time since last update
+    uint32_t current_ms = millis();
+    uint32_t elapsed_ms = current_ms - last_update_ms_;
+    last_update_ms_ = current_ms;
+
     // Update runtime if fans are running
     if (supply_speed_ > 0 || exhaust_speed_ > 0) {
-        total_runtime_ms_ += 100;  // Approximate
+        total_runtime_ms_ += elapsed_ms;
     }
 }
 

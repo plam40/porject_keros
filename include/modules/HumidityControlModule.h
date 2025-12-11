@@ -3,7 +3,10 @@
  * @purpose Humidity control with dehumidification, humidification, and mold prevention
  * @dependencies ModuleInterface.h, HAL.h, EventBus.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Humidity sensor read: ~10-20ms, Control update: <1ms
+ * @module_type MODULE
  *
  * This module manages humidity control for HVAC zones including:
  * - Humidity monitoring via I2C sensors (BME280, SHT31, DHT22)

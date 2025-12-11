@@ -3,7 +3,10 @@
  * @purpose Ventilation control for HRV/ERV systems
  * @dependencies ModuleInterface.h, HAL.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Fan speed update: <1ms
+ * @module_type MODULE
  *
  * Controls ventilation fans with variable speed control.
  * Supports fresh air intake and exhaust with optional heat recovery.
@@ -67,6 +70,7 @@ private:
     uint8_t supply_speed_;
     uint8_t exhaust_speed_;
     uint32_t total_runtime_ms_;
+    uint32_t last_update_ms_;
     bool has_error_;
     String error_message_;
 };

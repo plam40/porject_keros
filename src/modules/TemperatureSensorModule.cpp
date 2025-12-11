@@ -3,7 +3,10 @@
  * @purpose Implementation of temperature sensor management module
  * @dependencies TemperatureSensorModule.h, HAL.h, ConfigManager.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Sensor reads are non-blocking when possible
+ * @module_type MODULE
  */
 
 #include "modules/TemperatureSensorModule.h"

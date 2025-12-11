@@ -3,7 +3,10 @@
  * @purpose Implementation of circulation pump control module
  * @dependencies PumpModule.h, HAL.h, ConfigManager.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Pump update cycle: <1ms per pump
+ * @module_type MODULE
  */
 
 #include "modules/PumpModule.h"

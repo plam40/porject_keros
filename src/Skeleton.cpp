@@ -3,7 +3,10 @@
  * @purpose Implementation of core skeleton system
  * @dependencies Skeleton.h, ModuleInterface.h, EventBus.h, SafetyEngine.h, ConfigManager.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Full system update cycle: 0.5-2ms typical
+ * @module_type SKELETON
  */
 
 #include "Skeleton.h"

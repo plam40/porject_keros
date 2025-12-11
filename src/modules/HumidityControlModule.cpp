@@ -3,7 +3,10 @@
  * @purpose Implementation of humidity control module
  * @dependencies HumidityControlModule.h, HAL.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes I2C sensor read: ~10-20ms, Control logic: <1ms
+ * @module_type MODULE
  */
 
 #include "modules/HumidityControlModule.h"
@@ -656,5 +659,5 @@ void HumidityControlModule::publish_humidity_event(const String& sensor_name,
     event.previous_value = previous;
     event.units = "%RH";
 
-    EventBus::get_instance().publish(EventType::TEMPERATURE_CHANGED, &event);
+    EventBus::get_instance().publish(EventType::HUMIDITY_CHANGED, &event);
 }

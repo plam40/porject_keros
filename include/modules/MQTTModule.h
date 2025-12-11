@@ -3,7 +3,10 @@
  * @purpose MQTT integration for smart home platforms (Home Assistant, OpenHAB, etc.)
  * @dependencies ModuleInterface.h, PubSubClient, EventBus.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes MQTT publish: 5-15ms, Subscribe callback: <1ms
+ * @module_type MODULE
  *
  * This module provides MQTT integration with:
  * - Auto-discovery for Home Assistant

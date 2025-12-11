@@ -3,7 +3,10 @@
  * @purpose Web server with REST API and WebSocket for remote monitoring/control
  * @dependencies ModuleInterface.h, AsyncWebServer, AsyncWebSocket, ArduinoJson
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes HTTP request: 5-20ms, WebSocket broadcast: 2-10ms
+ * @module_type MODULE
  *
  * This module provides:
  * - REST API for all HVAC modules (GET/POST endpoints)
@@ -186,8 +189,12 @@ private:
     bool wifi_connected_;
     uint32_t last_wifi_check_ms_;
 
-    // Event subscription IDs
-    std::vector<uint32_t> event_subscriptions_;
+    // Event subscriptions (event type + subscription ID for proper unsubscription)
+    struct EventSubscription {
+        EventType type;
+        uint32_t id;
+    };
+    std::vector<EventSubscription> event_subscriptions_;
 };
 
 #endif // WEB_SERVER_MODULE_H

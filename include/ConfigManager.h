@@ -3,7 +3,10 @@
  * @purpose Configuration management with versioning, backup, and validation
  * @dependencies ArduinoJson, SPIFFS/LittleFS, EventBus.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Config load: ~50-100ms, Save: ~100-200ms
+ * @module_type SKELETON
  *
  * The ConfigManager provides centralized configuration management with:
  * - Automatic backup before changes

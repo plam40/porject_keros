@@ -3,7 +3,10 @@
  * @purpose System analytics, optimization, and predictive maintenance
  * @dependencies ModuleInterface.h, EventBus.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Analytics calculation: <5ms, ML inference: <20ms
+ * @module_type MODULE
  *
  * This module provides:
  * - Performance analytics and trending
@@ -134,6 +137,7 @@ private:
     std::vector<float> cop_history_;
     float total_energy_kwh_;
     uint32_t total_runtime_ms_;
+    uint32_t last_update_ms_;
 
     // Maintenance alerts
     std::vector<MaintenanceAlert> alerts_;

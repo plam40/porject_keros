@@ -3,7 +3,10 @@
  * @purpose Safety monitoring, fault detection, and emergency shutdown system
  * @dependencies ModuleInterface.h, EventBus.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Safety checks run every 100ms, complete in <10ms typically
+ * @module_type SKELETON
  *
  * The SafetyEngine continuously monitors all modules, hardware, and system parameters
  * to ensure safe operation. It can trigger emergency shutdowns, send alerts, and

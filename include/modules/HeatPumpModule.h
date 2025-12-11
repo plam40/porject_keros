@@ -3,7 +3,10 @@
  * @purpose Heat pump control with compressor management, COP optimization, and defrost
  * @dependencies ModuleInterface.h, HAL.h, EventBus.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes COP calculation: <100μs, Defrost decision: ~1ms
+ * @module_type MODULE
  *
  * This module manages heat pump operation including:
  * - Compressor control with protection timers

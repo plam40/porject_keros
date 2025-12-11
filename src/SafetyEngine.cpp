@@ -3,7 +3,10 @@
  * @purpose Implementation of safety monitoring and fault detection system
  * @dependencies SafetyEngine.h, EventBus.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Safety monitoring task runs every 100ms with <10ms execution time
+ * @module_type SKELETON
  */
 
 #include "SafetyEngine.h"

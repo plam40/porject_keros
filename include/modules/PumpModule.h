@@ -3,7 +3,10 @@
  * @purpose Circulation pump control module with variable speed control
  * @dependencies ModuleInterface.h, HAL.h, EventBus.h
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes PWM update: <1ms, Current monitoring: ~20μs
+ * @module_type MODULE
  *
  * This module manages all circulation pumps in the HVAC system. It provides:
  * - Variable speed control via PWM (0-100%)

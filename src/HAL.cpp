@@ -3,7 +3,10 @@
  * @purpose Implementation of Hardware Abstraction Layer
  * @dependencies HAL.h, Arduino, Wire, OneWire, DallasTemperature
  * @version 1.0.0
+ * @last_modified 2025-12-11
+ * @author Keros Development Team
  * @performance_notes Optimized for ESP32 hardware peripherals
+ * @module_type SKELETON
  */
 
 #include "HAL.h"
