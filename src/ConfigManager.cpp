@@ -374,3 +374,45 @@ std::vector<String> ConfigManager::list_backups() const {
     }
     return backups;
 }
+
+void ConfigManager::remove_key(ConfigSection section, const String& key) {
+    String section_name = section_to_string(section);
+    if (config_doc_.containsKey(section_name) &&
+        config_doc_[section_name].containsKey(key)) {
+        config_doc_[section_name].remove(key);
+        Serial.printf("[ConfigManager] Removed key: %s.%s\n",
+                     section_name.c_str(), key.c_str());
+    }
+}
+
+JsonObject ConfigManager::get_section(ConfigSection section) const {
+    String section_name = section_to_string(section);
+    if (config_doc_.containsKey(section_name)) {
+        return config_doc_[section_name];
+    }
+    // Return empty object if section doesn't exist
+    return JsonObject();
+}
+
+bool ConfigManager::migrate_config(const String& from_version) {
+    Serial.printf("[ConfigManager] Migrating config from version %s to %s\n",
+                 from_version.c_str(), version_.c_str());
+
+    // Version migration logic
+    // Currently no migrations needed, but structure is in place for future use
+    if (from_version == version_) {
+        return true;  // Same version, no migration needed
+    }
+
+    // Example migration pattern:
+    // if (from_version == "0.9.0") {
+    //     // Migrate from 0.9.0 to 1.0.0
+    //     // Add new required fields with defaults
+    //     if (!has_key(ConfigSection::SYSTEM, "new_field")) {
+    //         set_string(ConfigSection::SYSTEM, "new_field", "default_value");
+    //     }
+    // }
+
+    Serial.println("[ConfigManager] Migration complete");
+    return true;
+}

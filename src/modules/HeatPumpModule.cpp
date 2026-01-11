@@ -14,7 +14,7 @@
 
 HeatPumpModule::HeatPumpModule()
     : mode_(HeatPumpMode::OFF),
-      state_(HeatPumpState::STOPPED),
+      hp_state_(HeatPumpState::STOPPED),
       target_supply_temp_c_(50.0),
       supply_temp_c_(0.0),
       return_temp_c_(0.0),
@@ -80,11 +80,11 @@ HealthStatus HeatPumpModule::health_check() {
         health.is_healthy = false;
         health.health_percentage = 0;
         health.status_message = error_message_;
-    } else if (state_ == HeatPumpState::RUNNING && current_cop_ < config_.min_cop) {
+    } else if (hp_state_ == HeatPumpState::RUNNING && current_cop_ < config_.min_cop) {
         health.is_healthy = false;
         health.health_percentage = 50;
         health.status_message = "COP below minimum";
-    } else if (state_ == HeatPumpState::RUNNING && current_cop_ < config_.nominal_cop * 0.7) {
+    } else if (hp_state_ == HeatPumpState::RUNNING && current_cop_ < config_.nominal_cop * 0.7) {
         health.is_healthy = true;
         health.health_percentage = 70;
         health.status_message = "COP degraded";
@@ -126,7 +126,7 @@ bool HeatPumpModule::initialize() {
 
     // Initialize state
     mode_ = HeatPumpMode::STANDBY;
-    state_ = HeatPumpState::STOPPED;
+    hp_state_ = HeatPumpState::STOPPED;
     state_start_time_ms_ = millis();
     last_stop_time_ms_ = millis();
     init_time_ms_ = millis();
@@ -145,7 +145,7 @@ void HeatPumpModule::shutdown() {
     set_compressor(false);
 
     mode_ = HeatPumpMode::OFF;
-    state_ = HeatPumpState::STOPPED;
+    hp_state_ = HeatPumpState::STOPPED;
 
     state_ = ModuleState::SHUTDOWN;
     Serial.println("[HeatPump] Shutdown complete");
@@ -160,7 +160,7 @@ void HeatPumpModule::update() {
     read_temperatures();
 
     // Calculate COP if running
-    if (state_ == HeatPumpState::RUNNING) {
+    if (hp_state_ == HeatPumpState::RUNNING) {
         calculate_cop();
     }
 
@@ -175,7 +175,7 @@ bool HeatPumpModule::set_mode(HeatPumpMode mode) {
     }
 
     // Don't allow mode changes during defrost
-    if (state_ == HeatPumpState::DEFROSTING) {
+    if (hp_state_ == HeatPumpState::DEFROSTING) {
         Serial.println("[HeatPump] WARNING: Cannot change mode during defrost");
         return false;
     }
@@ -195,7 +195,7 @@ bool HeatPumpModule::set_mode(HeatPumpMode mode) {
 HeatPumpStatus HeatPumpModule::get_status() const {
     HeatPumpStatus status;
     status.mode = mode_;
-    status.state = state_;
+    status.state = hp_state_;
     status.supply_temp_c = supply_temp_c_;
     status.return_temp_c = return_temp_c_;
     status.outdoor_temp_c = outdoor_temp_c_;
@@ -210,12 +210,12 @@ HeatPumpStatus HeatPumpModule::get_status() const {
 
     // Calculate time until next action
     uint32_t now = millis();
-    if (state_ == HeatPumpState::STOPPED && mode_ != HeatPumpMode::OFF) {
+    if (hp_state_ == HeatPumpState::STOPPED && mode_ != HeatPumpMode::OFF) {
         uint32_t elapsed = now - last_stop_time_ms_;
         if (elapsed < config_.min_off_time_ms) {
             status.time_until_next_action_ms = config_.min_off_time_ms - elapsed;
         }
-    } else if (state_ == HeatPumpState::RUNNING) {
+    } else if (hp_state_ == HeatPumpState::RUNNING) {
         uint32_t elapsed = now - last_start_time_ms_;
         if (elapsed < config_.min_on_time_ms) {
             status.time_until_next_action_ms = config_.min_on_time_ms - elapsed;
@@ -226,7 +226,7 @@ HeatPumpStatus HeatPumpModule::get_status() const {
 }
 
 bool HeatPumpModule::start_defrost() {
-    if (state_ == HeatPumpState::RUNNING) {
+    if (hp_state_ == HeatPumpState::RUNNING) {
         enter_defrost_mode();
         return true;
     }
@@ -234,19 +234,19 @@ bool HeatPumpModule::start_defrost() {
 }
 
 void HeatPumpModule::update_state_machine() {
-    HeatPumpState previous_state = state_;
+    HeatPumpState previous_state = hp_state_;
     uint32_t now = millis();
 
     // Check safety limits
     if (!check_safety_limits()) {
-        if (state_ == HeatPumpState::RUNNING || state_ == HeatPumpState::DEFROSTING) {
+        if (hp_state_ == HeatPumpState::RUNNING || hp_state_ == HeatPumpState::DEFROSTING) {
             set_compressor(false);
-            state_ = HeatPumpState::ERROR;
+            hp_state_ = HeatPumpState::ERROR;
         }
         return;
     }
 
-    switch (state_) {
+    switch (hp_state_) {
         case HeatPumpState::STOPPED:
             // Check if should start
             if (mode_ == HeatPumpMode::HEATING || mode_ == HeatPumpMode::COOLING) {
@@ -267,7 +267,7 @@ void HeatPumpModule::update_state_machine() {
                                    supply_temp_c_ > target_supply_temp_c_ + 2.0);
 
                 if (need_heating || need_cooling) {
-                    state_ = HeatPumpState::STARTING;
+                    hp_state_ = HeatPumpState::STARTING;
                     state_start_time_ms_ = now;
                 }
             }
@@ -276,7 +276,7 @@ void HeatPumpModule::update_state_machine() {
         case HeatPumpState::STARTING:
             // Brief starting delay (could be used for pre-circulation, etc.)
             if (now - state_start_time_ms_ > 5000) {
-                state_ = HeatPumpState::RUNNING;
+                hp_state_ = HeatPumpState::RUNNING;
                 state_start_time_ms_ = now;
                 last_start_time_ms_ = now;
                 compressor_starts_++;
@@ -296,16 +296,18 @@ void HeatPumpModule::update_state_machine() {
             }
 
             // Check if should stop
-            bool stop_heating = (mode_ == HeatPumpMode::HEATING &&
-                               supply_temp_c_ > target_supply_temp_c_ + 2.0);
-            bool stop_cooling = (mode_ == HeatPumpMode::COOLING &&
-                               supply_temp_c_ < target_supply_temp_c_ - 2.0);
-            bool stop_requested = (mode_ == HeatPumpMode::OFF || mode_ == HeatPumpMode::STANDBY);
+            {
+                bool stop_heating = (mode_ == HeatPumpMode::HEATING &&
+                                   supply_temp_c_ > target_supply_temp_c_ + 2.0);
+                bool stop_cooling = (mode_ == HeatPumpMode::COOLING &&
+                                   supply_temp_c_ < target_supply_temp_c_ - 2.0);
+                bool stop_requested = (mode_ == HeatPumpMode::OFF || mode_ == HeatPumpMode::STANDBY);
 
-            if ((stop_heating || stop_cooling || stop_requested) &&
-                now - last_start_time_ms_ >= config_.min_on_time_ms) {
-                state_ = HeatPumpState::STOPPING;
-                state_start_time_ms_ = now;
+                if ((stop_heating || stop_cooling || stop_requested) &&
+                    now - last_start_time_ms_ >= config_.min_on_time_ms) {
+                    hp_state_ = HeatPumpState::STOPPING;
+                    state_start_time_ms_ = now;
+                }
             }
             break;
 
@@ -313,7 +315,7 @@ void HeatPumpModule::update_state_machine() {
             // Brief stopping delay
             if (now - state_start_time_ms_ > 2000) {
                 set_compressor(false);
-                state_ = HeatPumpState::STOPPED;
+                hp_state_ = HeatPumpState::STOPPED;
                 state_start_time_ms_ = now;
                 last_stop_time_ms_ = now;
             }
@@ -333,7 +335,7 @@ void HeatPumpModule::update_state_machine() {
     }
 
     // Publish event if state changed
-    if (state_ != previous_state) {
+    if (hp_state_ != previous_state) {
         publish_state_event(previous_state);
     }
 }
@@ -430,7 +432,7 @@ bool HeatPumpModule::is_defrost_needed() {
 void HeatPumpModule::enter_defrost_mode() {
     Serial.println("[HeatPump] Entering defrost mode");
 
-    state_ = HeatPumpState::DEFROSTING;
+    hp_state_ = HeatPumpState::DEFROSTING;
     state_start_time_ms_ = millis();
     defrost_cycles_++;
 
@@ -454,7 +456,7 @@ void HeatPumpModule::exit_defrost_mode() {
     }
 
     last_defrost_time_ms_ = millis();
-    state_ = HeatPumpState::RUNNING;
+    hp_state_ = HeatPumpState::RUNNING;
     state_start_time_ms_ = millis();
 
     // Publish event
@@ -548,12 +550,12 @@ void HeatPumpModule::publish_state_event(HeatPumpState previous_state) {
     event.source_module = "HeatPumpModule";
     event.component_id = "compressor";
     event.previous_state = String(static_cast<int>(previous_state));
-    event.new_state = String(static_cast<int>(state_));
+    event.new_state = String(static_cast<int>(hp_state_));
     event.reason = "State transition";
 
     EventBus::get_instance().publish(EventType::COMPRESSOR_STATE_CHANGED, &event);
 
     Serial.printf("[HeatPump] State: %d -> %d\n",
                  static_cast<int>(previous_state),
-                 static_cast<int>(state_));
+                 static_cast<int>(hp_state_));
 }

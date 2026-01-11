@@ -240,7 +240,8 @@ public:
     ConfigManager& operator=(const ConfigManager&) = delete;
 
 private:
-    ConfigManager() : initialized_(false), version_("1.0.0") {}
+    ConfigManager() : config_doc_(JSON_DOC_SIZE), initialized_(false),
+                      version_("1.0.0"), stats_{0, 0, 0, 0, 0} {}
 
     /**
      * Load factory default configuration

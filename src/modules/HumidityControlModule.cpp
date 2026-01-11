@@ -274,7 +274,15 @@ HumidityZoneStatus HumidityControlModule::get_zone_status(const String& zone_nam
     status.target_humidity_percent = zone.config.target_humidity_percent;
     status.dewpoint_c = dewpoint;
     status.mold_risk = zone.mold_risk_active;
-    status.condensation_risk = false;  // TODO: Implement condensation risk
+
+    // Calculate condensation risk: temperature within 3°C of dewpoint
+    if (sensor_it != sensors_.end() && sensor_it->second.valid) {
+        float temp_margin = sensor_it->second.temperature_c - dewpoint;
+        status.condensation_risk = (temp_margin <= 3.0f && temp_margin >= 0.0f);
+    } else {
+        status.condensation_risk = false;
+    }
+
     status.dehumidifier_runtime_hours = zone.dehumidifier_runtime_ms / 3600000;
     status.humidifier_runtime_hours = zone.humidifier_runtime_ms / 3600000;
     status.has_error = zone.has_error;

@@ -269,7 +269,8 @@ public:
 
 private:
     SafetyEngine() : monitoring_active_(false), auto_recovery_enabled_(true),
-                     in_emergency_shutdown_(false) {}
+                     in_emergency_shutdown_(false), last_watchdog_feed_ms_(0),
+                     monitoring_task_handle_(nullptr) {}
 
     /**
      * Safety monitoring task (runs in FreeRTOS task)

@@ -262,7 +262,7 @@ private:
 
     // Current state
     HeatPumpMode mode_;
-    HeatPumpState state_;
+    HeatPumpState hp_state_;  // Heat pump internal state (separate from ModuleState)
     float target_supply_temp_c_;
 
     // Temperature readings

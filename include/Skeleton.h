@@ -218,7 +218,11 @@ public:
 private:
     Skeleton() : state_(SystemState::UNINITIALIZED), verbose_logging_(false),
                  loop_count_(0), last_loop_time_us_(0), max_loop_time_us_(0),
-                 min_free_heap_(0xFFFFFFFF) {}
+                 total_loop_time_us_(0), min_free_heap_(0xFFFFFFFF),
+                 system_start_time_ms_(0), cpu_sample_index_(0),
+                 last_cpu_sample_ms_(0) {
+        for (int i = 0; i < 10; i++) cpu_usage_samples_[i] = 0;
+    }
 
     /**
      * Initialize all registered modules in priority order
@@ -275,6 +279,11 @@ private:
     uint32_t total_loop_time_us_;
     uint32_t min_free_heap_;
     uint32_t system_start_time_ms_;
+
+    // CPU usage tracking (rolling average over last second)
+    uint32_t cpu_usage_samples_[10];
+    uint8_t cpu_sample_index_;
+    uint32_t last_cpu_sample_ms_;
 };
 
 #endif // SKELETON_H

@@ -109,6 +109,14 @@ void Skeleton::update() {
     }
     total_loop_time_us_ += loop_time_us;
     loop_count_++;
+
+    // Update CPU usage samples every 100ms
+    uint32_t now = millis();
+    if (now - last_cpu_sample_ms_ >= 100) {
+        last_cpu_sample_ms_ = now;
+        cpu_usage_samples_[cpu_sample_index_] = loop_time_us;
+        cpu_sample_index_ = (cpu_sample_index_ + 1) % 10;
+    }
 }
 
 void Skeleton::shutdown(bool emergency) {
@@ -215,7 +223,24 @@ SystemStats Skeleton::get_stats() const {
     stats.max_loop_time_us = max_loop_time_us_;
     stats.free_heap_bytes = ESP.getFreeHeap();
     stats.min_free_heap_bytes = min_free_heap_;
-    stats.cpu_usage_percent = 0;  // TODO: Calculate actual CPU usage
+    // Calculate CPU usage from rolling average of loop times
+    // Assuming 1ms delay between loops, CPU% = (avg_loop_us / 1000) * 100
+    uint32_t total_samples = 0;
+    int sample_count = 0;
+    for (int i = 0; i < 10; i++) {
+        if (cpu_usage_samples_[i] > 0) {
+            total_samples += cpu_usage_samples_[i];
+            sample_count++;
+        }
+    }
+    if (sample_count > 0) {
+        uint32_t avg_loop_us = total_samples / sample_count;
+        // With 1ms (1000us) target loop time, CPU usage = loop_time / 1000
+        stats.cpu_usage_percent = (avg_loop_us * 100) / 1000;
+        if (stats.cpu_usage_percent > 100) stats.cpu_usage_percent = 100;
+    } else {
+        stats.cpu_usage_percent = 0;
+    }
     stats.active_modules = 0;
     stats.healthy_modules = 0;
     stats.state = state_;

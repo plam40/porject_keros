@@ -260,14 +260,20 @@ void WebServerModule::setup_api_endpoints() {
     // Heat pump endpoints
     server_->on("/api/heatpump/status", HTTP_GET,
         [this](AsyncWebServerRequest* request) { handle_heatpump_status(request); });
+    server_->on("/api/heatpump/mode", HTTP_POST,
+        [this](AsyncWebServerRequest* request) { handle_heatpump_set_mode(request); });
 
     // Humidity endpoints
     server_->on("^\\/api\\/humidity\\/([a-zA-Z0-9_]+)\\/status$", HTTP_GET,
         [this](AsyncWebServerRequest* request) { handle_humidity_status(request); });
+    server_->on("^\\/api\\/humidity\\/([a-zA-Z0-9_]+)\\/target$", HTTP_POST,
+        [this](AsyncWebServerRequest* request) { handle_humidity_set_target(request); });
 
     // Ventilation endpoints
     server_->on("/api/ventilation/status", HTTP_GET,
         [this](AsyncWebServerRequest* request) { handle_ventilation_status(request); });
+    server_->on("/api/ventilation/mode", HTTP_POST,
+        [this](AsyncWebServerRequest* request) { handle_ventilation_set_mode(request); });
 
     // Storage endpoints
     server_->on("^\\/api\\/storage\\/([a-zA-Z0-9_]+)\\/status$", HTTP_GET,
@@ -400,8 +406,40 @@ void WebServerModule::handle_pump_status(AsyncWebServerRequest* request) {
 }
 
 void WebServerModule::handle_pump_set_speed(AsyncWebServerRequest* request) {
-    // Body parsing would go here
-    send_error(request, 501, "Not implemented yet");
+    if (!check_auth(request)) return;
+
+    String pump_name = request->pathArg(0);
+
+    // Get speed from query parameter (e.g., /api/pump/primary/speed?speed=75)
+    if (!request->hasParam("speed")) {
+        send_error(request, 400, "Missing 'speed' parameter");
+        return;
+    }
+
+    float speed = request->getParam("speed")->value().toFloat();
+
+    if (speed < 0 || speed > 100) {
+        send_error(request, 400, "Speed must be between 0 and 100");
+        return;
+    }
+
+    Skeleton& system = Skeleton::get_instance();
+    PumpModule* pump_mod = static_cast<PumpModule*>(system.get_module("PumpModule"));
+
+    if (!pump_mod) {
+        send_error(request, 404, "Pump module not found");
+        return;
+    }
+
+    if (pump_mod->set_speed(pump_name, speed)) {
+        DynamicJsonDocument doc(256);
+        doc["success"] = true;
+        doc["pump"] = pump_name;
+        doc["speed"] = speed;
+        send_json_response(request, 200, doc);
+    } else {
+        send_error(request, 400, "Failed to set pump speed");
+    }
 }
 
 void WebServerModule::handle_heatpump_status(AsyncWebServerRequest* request) {
@@ -430,7 +468,40 @@ void WebServerModule::handle_heatpump_status(AsyncWebServerRequest* request) {
 }
 
 void WebServerModule::handle_heatpump_set_mode(AsyncWebServerRequest* request) {
-    send_error(request, 501, "Not implemented yet");
+    if (!check_auth(request)) return;
+
+    // Get mode from query parameter (e.g., /api/heatpump/mode?mode=1)
+    // Modes: 0=OFF, 1=HEATING, 2=COOLING, 3=DEFROST, 4=STANDBY
+    if (!request->hasParam("mode")) {
+        send_error(request, 400, "Missing 'mode' parameter");
+        return;
+    }
+
+    int mode_int = request->getParam("mode")->value().toInt();
+
+    if (mode_int < 0 || mode_int > 4) {
+        send_error(request, 400, "Mode must be 0-4 (OFF, HEATING, COOLING, DEFROST, STANDBY)");
+        return;
+    }
+
+    Skeleton& system = Skeleton::get_instance();
+    HeatPumpModule* hp_mod = static_cast<HeatPumpModule*>(system.get_module("HeatPumpModule"));
+
+    if (!hp_mod) {
+        send_error(request, 404, "Heat pump module not found");
+        return;
+    }
+
+    HeatPumpMode mode = static_cast<HeatPumpMode>(mode_int);
+
+    if (hp_mod->set_mode(mode)) {
+        DynamicJsonDocument doc(256);
+        doc["success"] = true;
+        doc["mode"] = mode_int;
+        send_json_response(request, 200, doc);
+    } else {
+        send_error(request, 400, "Failed to set heat pump mode");
+    }
 }
 
 void WebServerModule::handle_humidity_status(AsyncWebServerRequest* request) {
@@ -465,7 +536,41 @@ void WebServerModule::handle_humidity_status(AsyncWebServerRequest* request) {
 }
 
 void WebServerModule::handle_humidity_set_target(AsyncWebServerRequest* request) {
-    send_error(request, 501, "Not implemented yet");
+    if (!check_auth(request)) return;
+
+    String zone_name = request->pathArg(0);
+
+    // Get target from query parameter (e.g., /api/humidity/living_room/target?target=50)
+    if (!request->hasParam("target")) {
+        send_error(request, 400, "Missing 'target' parameter");
+        return;
+    }
+
+    float target = request->getParam("target")->value().toFloat();
+
+    if (target < 20 || target > 80) {
+        send_error(request, 400, "Target humidity must be between 20 and 80%");
+        return;
+    }
+
+    Skeleton& system = Skeleton::get_instance();
+    HumidityControlModule* hum_mod =
+        static_cast<HumidityControlModule*>(system.get_module("HumidityControlModule"));
+
+    if (!hum_mod) {
+        send_error(request, 404, "Humidity module not found");
+        return;
+    }
+
+    if (hum_mod->set_zone_target(zone_name, target)) {
+        DynamicJsonDocument doc(256);
+        doc["success"] = true;
+        doc["zone"] = zone_name;
+        doc["target_humidity"] = target;
+        send_json_response(request, 200, doc);
+    } else {
+        send_error(request, 400, "Failed to set target humidity (zone not found?)");
+    }
 }
 
 void WebServerModule::handle_ventilation_status(AsyncWebServerRequest* request) {
@@ -492,7 +597,41 @@ void WebServerModule::handle_ventilation_status(AsyncWebServerRequest* request) 
 }
 
 void WebServerModule::handle_ventilation_set_mode(AsyncWebServerRequest* request) {
-    send_error(request, 501, "Not implemented yet");
+    if (!check_auth(request)) return;
+
+    // Get mode from query parameter (e.g., /api/ventilation/mode?mode=2)
+    // Modes: 0=OFF, 1=LOW, 2=MEDIUM, 3=HIGH, 4=BOOST, 5=AUTO
+    if (!request->hasParam("mode")) {
+        send_error(request, 400, "Missing 'mode' parameter");
+        return;
+    }
+
+    int mode_int = request->getParam("mode")->value().toInt();
+
+    if (mode_int < 0 || mode_int > 5) {
+        send_error(request, 400, "Mode must be 0-5 (OFF, LOW, MEDIUM, HIGH, BOOST, AUTO)");
+        return;
+    }
+
+    Skeleton& system = Skeleton::get_instance();
+    VentilationModule* vent_mod =
+        static_cast<VentilationModule*>(system.get_module("VentilationModule"));
+
+    if (!vent_mod) {
+        send_error(request, 404, "Ventilation module not found");
+        return;
+    }
+
+    VentilationMode mode = static_cast<VentilationMode>(mode_int);
+
+    if (vent_mod->set_mode(mode)) {
+        DynamicJsonDocument doc(256);
+        doc["success"] = true;
+        doc["mode"] = mode_int;
+        send_json_response(request, 200, doc);
+    } else {
+        send_error(request, 400, "Failed to set ventilation mode");
+    }
 }
 
 void WebServerModule::handle_storage_status(AsyncWebServerRequest* request) {
